@@ -339,11 +339,11 @@ impl Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg = match self.kind() {
-            ErrorKind::AuthError { err } => {
+            ErrorKind::Auth { err } => {
                 format!("Error while authenticating: {}", err)
             }
-            ErrorKind::HttpError { err } => format!("HTTP error: {}", err),
-            ErrorKind::ParseJsonGridError { msg } => {
+            ErrorKind::Http { err } => format!("HTTP error: {}", err),
+            ErrorKind::ParseJsonGrid { msg } => {
                 format!("Could not parse a grid from JSON: {}", msg)
             }
         };
@@ -355,19 +355,19 @@ impl std::fmt::Display for Error {
 #[derive(Debug)]
 enum ErrorKind {
     /// An error which occurred during the authorization process.
-    AuthError { err: auth::AuthError },
+    Auth { err: auth::AuthError },
     /// An error which originated from the underlying HTTP library.
-    HttpError { err: reqwest::Error },
+    Http { err: reqwest::Error },
     /// An error related to parsing a `Grid`.
-    ParseJsonGridError { msg: String },
+    ParseJsonGrid { msg: String },
 }
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self.kind() {
-            ErrorKind::AuthError { err } => Some(err),
-            ErrorKind::HttpError { err } => Some(err),
-            ErrorKind::ParseJsonGridError { .. } => None,
+            ErrorKind::Auth { err } => Some(err),
+            ErrorKind::Http { err } => Some(err),
+            ErrorKind::ParseJsonGrid { .. } => None,
         }
     }
 }
@@ -375,7 +375,7 @@ impl std::error::Error for Error {
 impl From<auth::AuthError> for Error {
     fn from(err: auth::AuthError) -> Self {
         Error {
-            kind: ErrorKind::AuthError { err },
+            kind: ErrorKind::Auth { err },
         }
     }
 }
@@ -383,7 +383,7 @@ impl From<auth::AuthError> for Error {
 impl From<reqwest::Error> for Error {
     fn from(error: reqwest::Error) -> Self {
         Error {
-            kind: ErrorKind::HttpError { err: error },
+            kind: ErrorKind::Http { err: error },
         }
     }
 }
@@ -391,7 +391,7 @@ impl From<reqwest::Error> for Error {
 impl From<ParseJsonGridError> for Error {
     fn from(error: ParseJsonGridError) -> Self {
         Error {
-            kind: ErrorKind::ParseJsonGridError { msg: error.msg },
+            kind: ErrorKind::ParseJsonGrid { msg: error.msg },
         }
     }
 }
