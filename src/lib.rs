@@ -150,6 +150,11 @@ impl SkySparkClient {
             None => None,
         }
     }
+
+    /// Return the project API url being used by this client.
+    pub fn project_api_url(&self) -> &Url {
+        &self.project_api_url
+    }
 }
 
 /// If the given url ends with a backslash, return the url without
