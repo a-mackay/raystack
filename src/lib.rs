@@ -22,7 +22,7 @@
 //!     
 //!     fn main() {
 //!         let url = Url::parse("https://www.example.com/api/projName/").unwrap();
-//!         let client = SkySparkClient::new(url, "username", "p4ssw0rd").unwrap();
+//!         let client = SkySparkClient::new(url, "username", "p4ssw0rd", None).unwrap();
 //!         let sites_grid = client.eval("readAll(site)").unwrap();
 //!     
 //!         // Print the raw JSON:
@@ -70,15 +70,21 @@ impl SkySparkClient {
     /// use raystack::SkySparkClient;
     /// use url::Url;
     /// let url = Url::parse("https://skyspark.company.com/api/bigProject/").unwrap();
-    /// let client = SkySparkClient::new(url, "username", "p4ssw0rd").unwrap();
+    /// let client = SkySparkClient::new(url, "username", "p4ssw0rd", None).unwrap();
     /// ```
     pub fn new(
         project_api_url: Url,
         username: &str,
         password: &str,
+        timeout_in_seconds: Option<u64>,
     ) -> Result<Self> {
+        use std::time::Duration;
+
         let project_api_url = add_backslash_if_necessary(project_api_url);
-        let client = ReqwestClient::new();
+
+        let client = ReqwestClient::builder()
+            .timeout(timeout_in_seconds.map(|s| Duration::from_secs(s)))
+            .build()?;
 
         let mut auth_url = project_api_url.clone();
         auth_url.set_path("/ui");
@@ -420,7 +426,7 @@ mod test {
     }
 
     fn new_client() -> SkySparkClient {
-        SkySparkClient::new(project_api_url(), &username(), &password())
+        SkySparkClient::new(project_api_url(), &username(), &password(), None)
             .unwrap()
     }
 
