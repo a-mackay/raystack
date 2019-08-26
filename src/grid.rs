@@ -76,7 +76,9 @@ impl Grid {
     /// Consume the grid and return an owned map, which represents the
     /// metadata for the grid.
     pub fn to_meta(self) -> Map<String, Value> {
-        let meta = self.json["meta"].as_object().expect("meta is a JSON Object");
+        let meta = self.json["meta"]
+            .as_object()
+            .expect("meta is a JSON Object");
         meta.clone()
     }
 
@@ -97,9 +99,13 @@ impl Grid {
 
     /// Consume the grid and return a vector of owned JSON values which
     /// represent the columns of the grid.
-    pub fn to_cols(mut self) -> Vec<Value> {
-        let cols = self.json["cols"].take();
-        cols.as_array().expect("cols is a JSON Array").into_iter().map(|col| col.clone()).collect()//.map(|row|)
+    pub fn to_cols(self) -> Vec<Value> {
+        self.json["cols"]
+            .as_array()
+            .expect("cols is a JSON Array")
+            .into_iter()
+            .map(|col| col.clone())
+            .collect() //.map(|row|)
     }
 
     /// Return a vector containing the column names in this grid.
@@ -117,9 +123,13 @@ impl Grid {
 
     /// Consume the grid and return a vector of owned JSON values which
     /// represent the rows of the grid.
-    pub fn to_rows(mut self) -> Vec<Value> {
-        let rows = self.json["rows"].take();
-        rows.as_array().expect("rows is a JSON Array").into_iter().map(|row| row.clone()).collect()//.map(|row|)
+    pub fn to_rows(self) -> Vec<Value> {
+        self.json["rows"]
+            .as_array()
+            .expect("rows is a JSON Array")
+            .into_iter()
+            .map(|row| row.clone())
+            .collect()
     }
 
     /// Return the string representation of the underlying JSON value.
