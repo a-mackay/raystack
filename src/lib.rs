@@ -56,6 +56,7 @@ use std::convert::TryInto;
 use url::Url;
 
 /// A client for interacting with a SkySpark server.
+#[derive(Debug)]
 pub struct SkySparkClient {
     auth_token: String,
     client: ReqwestClient,

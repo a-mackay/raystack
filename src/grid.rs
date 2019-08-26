@@ -159,7 +159,7 @@ impl std::convert::TryFrom<Value> for Grid {
 }
 
 /// Error denoting that a JSON value could not be parsed into a `Grid`.
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ParseJsonGridError {
     pub(crate) msg: String,
 }

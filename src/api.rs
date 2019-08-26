@@ -64,6 +64,7 @@ pub trait SkySparkRest {
 
 /// Represents the different time range queries that can be sent
 /// as part of the `hisRead` Haystack operation.
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum HisReadRange {
     /// Query for history values from today.
     Today,

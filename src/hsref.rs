@@ -1,5 +1,5 @@
 /// A Haystack Ref.
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Ref(String);
 
 impl Ref {
@@ -116,7 +116,7 @@ impl std::convert::AsRef<str> for Ref {
 }
 
 /// An error indicating that a `Ref` could not be parsed.
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ParseRefError {
     unparsable_ref: String,
 }
