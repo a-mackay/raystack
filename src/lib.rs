@@ -129,8 +129,14 @@ impl SkySparkClient {
 
     fn res_to_grid(mut res: reqwest::Response) -> Result<Grid> {
         let json: serde_json::Value = res.json()?;
-        json.try_into()
-            .map_err(|err: ParseJsonGridError| err.into())
+        let grid: Grid = json.try_into()?;
+            // .map_err(|err: ParseJsonGridError| err.into())?;
+
+        if grid.is_error() {
+            Err(Error { kind: ErrorKind::Grid { err_grid: grid } })
+        } else {
+            Ok(grid)
+        }
     }
 
     fn append_to_url(&self, s: &str) -> Url {
@@ -366,6 +372,10 @@ impl std::fmt::Display for Error {
             ErrorKind::Auth { err } => {
                 format!("Error while authenticating: {}", err)
             }
+            ErrorKind::Grid { err_grid } => {
+                let trace = err_grid.error_trace().unwrap_or("No error trace".to_owned());
+                format!("Error grid: {}", trace)
+            }
             ErrorKind::Http { err } => format!("HTTP error: {}", err),
             ErrorKind::ParseJsonGrid { msg } => {
                 format!("Could not parse a grid from JSON: {}", msg)
@@ -380,6 +390,8 @@ impl std::fmt::Display for Error {
 enum ErrorKind {
     /// An error which occurred during the authorization process.
     Auth { err: auth::AuthError },
+    /// The grid contained error information from the server.
+    Grid { err_grid: Grid },
     /// An error which originated from the underlying HTTP library.
     Http { err: reqwest::Error },
     /// An error related to parsing a `Grid`.
@@ -390,6 +402,7 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self.kind() {
             ErrorKind::Auth { err } => Some(err),
+            ErrorKind::Grid { .. } => None,
             ErrorKind::Http { err } => Some(err),
             ErrorKind::ParseJsonGrid { .. } => None,
         }
@@ -680,12 +693,8 @@ mod test {
     #[test]
     fn read_by_ids_with_no_ids() {
         let client = new_client();
-        let grid = client.read_by_ids(&Vec::new()).unwrap();
-        pprint(&grid);
-        assert_eq!(
-            grid.meta()["dis"],
-            Value::String("s:sys::Err: Request grid is empty".to_owned())
-        )
+        let grid_result = client.read_by_ids(&Vec::new());
+        assert!(grid_result.is_err());
     }
 
     #[test]
@@ -739,5 +748,25 @@ mod test {
         let url = Url::parse("http://www.example.com/api/proj/").unwrap();
         let expected = Url::parse("http://www.example.com/api/proj/").unwrap();
         assert_eq!(add_backslash_if_necessary(url), expected);
+    }
+
+    #[test]
+    fn error_grid() {
+        use super::ErrorKind;
+
+        let client = new_client();
+        let grid_result = client.eval("reabDDDAll(test");
+
+        assert!(grid_result.is_err());
+        let err = grid_result.err().unwrap();
+        let kind = err.kind();
+
+        match kind {
+            ErrorKind::Grid { err_grid } => {
+                assert!(err_grid.is_error());
+                assert!(err_grid.error_trace().is_some());
+            },
+            _ => panic!(),
+        }
     }
 }

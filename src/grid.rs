@@ -143,7 +143,27 @@ impl Grid {
         to_string_pretty(&self.json)
             .expect("serializing grid to String should never fail")
     }
+
+    /// Returns true if the grid appears to be an error grid.
+    pub fn is_error(&self) -> bool {
+        if let Some(err_val) = self.meta().get("err") {
+            if let Some(err_str) = err_val.as_str() {
+                err_str == MARKER_LITERAL
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Return the error trace if present.
+    pub fn error_trace(&self) -> Option<String> {
+        self.meta()["errTrace"].as_str().map(|s| s.to_owned())
+    }
 }
+
+const MARKER_LITERAL: &str = "m:";
 
 impl std::convert::TryFrom<Value> for Grid {
     type Error = ParseJsonGridError;
