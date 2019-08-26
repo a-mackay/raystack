@@ -138,6 +138,18 @@ impl SkySparkClient {
             .join(s)
             .expect("since url ends with '/' this should never fail")
     }
+
+    /// Return the project name for this client. If the url given to the
+    /// `SkySparkClient` was correct, then this function should return a
+    /// project name.
+    pub fn project_name(&self) -> Option<&str> {
+        let mut path_split = self.project_api_url.path_segments()?.collect::<Vec<_>>();
+        match path_split.pop() {
+            Some("") => path_split.pop(), // If empty, get the second last element
+            last_elem@Some(_) => last_elem,
+            None => None,
+        }
+    }
 }
 
 /// If the given url ends with a backslash, return the url without
