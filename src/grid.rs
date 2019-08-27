@@ -73,9 +73,9 @@ impl Grid {
             .expect("meta is a JSON Object")
     }
 
-    /// Consume the grid and return an owned map, which represents the
+    /// Return an owned map, which represents the
     /// metadata for the grid.
-    pub fn to_meta(self) -> Map<String, Value> {
+    pub fn to_meta(&self) -> Map<String, Value> {
         let meta = self.json["meta"]
             .as_object()
             .expect("meta is a JSON Object");
@@ -97,15 +97,13 @@ impl Grid {
         &self.json["cols"].as_array().expect("cols is a JSON Array")
     }
 
-    /// Consume the grid and return a vector of owned JSON values which
+    /// Return a vector of owned JSON values which
     /// represent the columns of the grid.
-    pub fn to_cols(self) -> Vec<Value> {
+    pub fn to_cols(&self) -> Vec<Value> {
         self.json["cols"]
             .as_array()
             .expect("cols is a JSON Array")
-            .into_iter()
-            .map(|col| col.clone())
-            .collect() //.map(|row|)
+            .to_vec()
     }
 
     /// Return a vector containing the column names in this grid.
@@ -121,15 +119,13 @@ impl Grid {
         &self.json["rows"].as_array().expect("rows is a JSON Array")
     }
 
-    /// Consume the grid and return a vector of owned JSON values which
+    /// Return a vector of owned JSON values which
     /// represent the rows of the grid.
-    pub fn to_rows(self) -> Vec<Value> {
+    pub fn to_rows(&self) -> Vec<Value> {
         self.json["rows"]
             .as_array()
             .expect("rows is a JSON Array")
-            .into_iter()
-            .map(|row| row.clone())
-            .collect()
+            .to_vec()
     }
 
     /// Return the string representation of the underlying JSON value.
@@ -160,6 +156,43 @@ impl Grid {
     /// Return the error trace if present.
     pub fn error_trace(&self) -> Option<String> {
         self.meta()["errTrace"].as_str().map(|s| s.to_owned())
+    }
+
+    /// Return a string containing a CSV representation of the grid.
+    /// Nested structures such as Dicts (JSON objects) or Lists (JSON arrays)
+    /// will not be expanded, and will be displayed as `<StructureType>`.
+    pub fn to_csv_string(&self) -> Result<String, crate::Error> {
+        let mut writer = csv::Writer::from_writer(vec![]);
+
+        let col_names = self.col_names();
+        writer.write_record(&col_names)?;
+
+        for row in self.rows() {
+            let mut row_values = Vec::new();
+            for &col_name in &col_names {
+                let value_string = match &row[col_name] {
+                    Value::Array(_) => "<Array>".to_owned(),
+                    Value::Bool(true) => "T".to_owned(),
+                    Value::Bool(false) => "F".to_owned(),
+                    Value::Null => "".to_owned(),
+                    Value::Number(n) => n.to_string(),
+                    Value::Object(_) => "<Object>".to_owned(),
+                    Value::String(s) => s.to_owned(),
+                };
+                row_values.push(value_string);
+            }
+            writer.write_record(row_values)?;
+        }
+
+        match writer.into_inner() {
+            Ok(bytes) => Ok(String::from_utf8(bytes)
+                .expect("Bytes should be UTF8 since all input was UTF8")),
+            Err(err) => {
+                let io_err = err.error();
+                let msg = io_err.to_string();
+                Err(crate::Error::new_io(msg))
+            }
+        }
     }
 }
 

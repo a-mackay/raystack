@@ -40,7 +40,8 @@
 //! for more information on how to query for data stored within it.
 
 mod api;
-mod auth;
+pub mod auth;
+mod err;
 mod grid;
 mod hsref;
 
@@ -48,6 +49,8 @@ use api::HaystackUrl;
 pub use api::{HaystackRest, HisReadRange, SkySparkRest};
 use chrono::DateTime;
 use chrono_tz::Tz;
+use err::Result;
+pub use err::{Error, ErrorKind};
 pub use grid::{Grid, ParseJsonGridError};
 pub use hsref::{ParseRefError, Ref};
 use reqwest::Client as ReqwestClient;
@@ -83,7 +86,7 @@ impl SkySparkClient {
         let project_api_url = add_backslash_if_necessary(project_api_url);
 
         let client = ReqwestClient::builder()
-            .timeout(timeout_in_seconds.map(|s| Duration::from_secs(s)))
+            .timeout(timeout_in_seconds.map(Duration::from_secs))
             .build()?;
 
         let mut auth_url = project_api_url.clone();
@@ -130,10 +133,10 @@ impl SkySparkClient {
     fn res_to_grid(mut res: reqwest::Response) -> Result<Grid> {
         let json: serde_json::Value = res.json()?;
         let grid: Grid = json.try_into()?;
-            // .map_err(|err: ParseJsonGridError| err.into())?;
+        // .map_err(|err: ParseJsonGridError| err.into())?;
 
         if grid.is_error() {
-            Err(Error { kind: ErrorKind::Grid { err_grid: grid } })
+            Err(Error::new(ErrorKind::Grid { err_grid: grid }))
         } else {
             Ok(grid)
         }
@@ -149,10 +152,11 @@ impl SkySparkClient {
     /// `SkySparkClient` was correct, then this function should return a
     /// project name.
     pub fn project_name(&self) -> Option<&str> {
-        let mut path_split = self.project_api_url.path_segments()?.collect::<Vec<_>>();
+        let mut path_split =
+            self.project_api_url.path_segments()?.collect::<Vec<_>>();
         match path_split.pop() {
             Some("") => path_split.pop(), // If empty, get the second last element
-            last_elem@Some(_) => last_elem,
+            last_elem @ Some(_) => last_elem,
             None => None,
         }
     }
@@ -351,95 +355,13 @@ impl SkySparkRest for SkySparkClient {
     }
 }
 
-type Result<T> = std::result::Result<T, Error>;
-
-/// Encapsulates all errors that can occur in this crate.
-#[derive(Debug)]
-pub struct Error {
-    kind: ErrorKind,
-}
-
-impl Error {
-    /// Return the underlying `ErrorKind` for this error.
-    fn kind(&self) -> &ErrorKind {
-        &self.kind
-    }
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msg = match self.kind() {
-            ErrorKind::Auth { err } => {
-                format!("Error while authenticating: {}", err)
-            }
-            ErrorKind::Grid { err_grid } => {
-                let trace = err_grid.error_trace().unwrap_or("No error trace".to_owned());
-                format!("Error grid: {}", trace)
-            }
-            ErrorKind::Http { err } => format!("HTTP error: {}", err),
-            ErrorKind::ParseJsonGrid { msg } => {
-                format!("Could not parse a grid from JSON: {}", msg)
-            }
-        };
-        write!(f, "Error - {}", msg)
-    }
-}
-
-/// Describes the kinds of errors that can occur in this crate.
-#[derive(Debug)]
-enum ErrorKind {
-    /// An error which occurred during the authorization process.
-    Auth { err: auth::AuthError },
-    /// The grid contained error information from the server.
-    Grid { err_grid: Grid },
-    /// An error which originated from the underlying HTTP library.
-    Http { err: reqwest::Error },
-    /// An error related to parsing a `Grid`.
-    ParseJsonGrid { msg: String },
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self.kind() {
-            ErrorKind::Auth { err } => Some(err),
-            ErrorKind::Grid { .. } => None,
-            ErrorKind::Http { err } => Some(err),
-            ErrorKind::ParseJsonGrid { .. } => None,
-        }
-    }
-}
-
-impl From<auth::AuthError> for Error {
-    fn from(err: auth::AuthError) -> Self {
-        Error {
-            kind: ErrorKind::Auth { err },
-        }
-    }
-}
-
-impl From<reqwest::Error> for Error {
-    fn from(error: reqwest::Error) -> Self {
-        Error {
-            kind: ErrorKind::Http { err: error },
-        }
-    }
-}
-
-impl From<ParseJsonGridError> for Error {
-    fn from(error: ParseJsonGridError) -> Self {
-        Error {
-            kind: ErrorKind::ParseJsonGrid { msg: error.msg },
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use crate::api::{HaystackRest, HisReadRange, SkySparkRest};
     use crate::grid::Grid;
     use crate::hsref::Ref;
     use crate::SkySparkClient;
-    use serde_json::{json, Value};
+    use serde_json::json;
     use url::Url;
 
     fn project_api_url() -> Url {
@@ -752,7 +674,7 @@ mod test {
 
     #[test]
     fn error_grid() {
-        use super::ErrorKind;
+        use crate::err::ErrorKind;
 
         let client = new_client();
         let grid_result = client.eval("reabDDDAll(test");
@@ -765,7 +687,7 @@ mod test {
             ErrorKind::Grid { err_grid } => {
                 assert!(err_grid.is_error());
                 assert!(err_grid.error_trace().is_some());
-            },
+            }
             _ => panic!(),
         }
     }

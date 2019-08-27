@@ -362,8 +362,9 @@ fn base64_decode_no_padding(s: &str) -> Result<String> {
     String::from_utf8(bytes).map_err(|e| e.into())
 }
 
+/// An error that occurred during the authentication process.
 #[derive(Debug)]
-pub(crate) struct AuthError {
+pub struct AuthError {
     kind: AuthErrorKind,
 }
 
