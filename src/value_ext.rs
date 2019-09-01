@@ -1,4 +1,4 @@
-use crate::{Number, Ref};
+use crate::{Coord, Number, Ref};
 use chrono::{NaiveDate, NaiveTime};
 use serde_json::Value;
 
@@ -7,6 +7,8 @@ use serde_json::Value;
 /// parse specific Haystack types from the underlying JSON
 /// value.
 pub trait ValueExt {
+    /// Convert the JSON value to a Haystack Coord.
+    fn as_hs_coord(&self) -> Option<Coord>;
     /// Convert the JSON value to a Haystack date.
     fn as_hs_date(&self) -> Option<NaiveDate>;
     /// Convert the JSON value to a Haystack Number.
@@ -18,6 +20,13 @@ pub trait ValueExt {
     fn as_hs_str(&self) -> Option<&str>;
     /// Convert the JSON value to a Haystack time.
     fn as_hs_time(&self) -> Option<NaiveTime>;
+    /// Return the Haystack URI value as a string.
+    fn as_hs_uri(&self) -> Option<&str>;
+    /// Return the Haystack XStr value as a string.
+    fn as_hs_xstr(&self) -> Option<&str>;
+    /// Returns true if the JSON value represents a Haystack
+    /// Coord.
+    fn is_hs_coord(&self) -> bool;
     /// Returns true if the JSON value represents a Haystack
     /// date.
     fn is_hs_date(&self) -> bool;
@@ -42,9 +51,30 @@ pub trait ValueExt {
     /// Returns true if the JSON value represents a Haystack
     /// time.
     fn is_hs_time(&self) -> bool;
+    /// Returns true if the JSON value represents a Haystack
+    /// URI.
+    fn is_hs_uri(&self) -> bool;
+    /// Returns true if the JSON value represents a Haystack
+    /// XStr.
+    fn is_hs_xstr(&self) -> bool;
 }
 
 impl ValueExt for Value {
+    fn as_hs_coord(&self) -> Option<Coord> {
+        self.as_str().and_then(|s| match haystack_type(s) {
+            JsonStringHaystackType::Coord => {
+                let mut split = trim_hs_prefix(s).split(',');
+                let lat = split.next().and_then(|s| str::parse(s).ok());
+                let lng = split.next().and_then(|s| str::parse(s).ok());
+                match (lat, lng) {
+                    (Some(lat), Some(lng)) => Some(Coord::new(lat, lng)),
+                    _ => None
+                }
+            }
+            _ => None
+        })
+    }
+
     fn as_hs_date(&self) -> Option<NaiveDate> {
         self.as_str().and_then(|s| match haystack_type(s) {
             JsonStringHaystackType::Date => {
@@ -91,6 +121,24 @@ impl ValueExt for Value {
             }
             _ => None,
         })
+    }
+
+    fn as_hs_uri(&self) -> Option<&str> {
+        self.as_str().and_then(|s| match haystack_type(s) {
+            JsonStringHaystackType::Uri => Some(trim_hs_prefix(s)),
+            _ => None,
+        })
+    }
+
+    fn as_hs_xstr(&self) -> Option<&str> {
+        self.as_str().and_then(|s| match haystack_type(s) {
+            JsonStringHaystackType::XStr => Some(trim_hs_prefix(s)),
+            _ => None,
+        })
+    }
+
+    fn is_hs_coord(&self) -> bool {
+        self.as_hs_coord().is_some()
     }
 
     fn is_hs_date(&self) -> bool {
@@ -144,6 +192,14 @@ impl ValueExt for Value {
 
     fn is_hs_time(&self) -> bool {
         self.as_hs_time().is_some()
+    }
+
+    fn is_hs_uri(&self) -> bool {
+        self.as_hs_uri().is_some()
+    }
+
+    fn is_hs_xstr(&self) -> bool {
+        self.as_hs_xstr().is_some()
     }
 }
 
@@ -354,5 +410,28 @@ mod test {
         let time_val = json!("h:3:59:15");
         let time = time_val.as_hs_time().unwrap();
         assert_eq!(time, NaiveTime::from_hms(3, 59, 15));
+    }
+
+    #[test]
+    fn as_hs_uri() {
+        let uri_val = json!("u:www.test.com");
+        let uri = uri_val.as_hs_uri().unwrap();
+        assert_eq!(uri, "www.test.com");
+    }
+
+    #[test]
+    fn as_hs_xstr() {
+        let xstr_val = json!("x:Type:value");
+        let xstr = xstr_val.as_hs_xstr().unwrap();
+        assert_eq!(xstr, "Type:value");
+    }
+
+    #[test]
+    fn as_hs_coord() {
+        use crate::Coord;
+
+        let coord_val = json!("c:37.545,-77.449");
+        let coord = coord_val.as_hs_coord().unwrap();
+        assert_eq!(coord, Coord::new(37.545, -77.449));
     }
 }

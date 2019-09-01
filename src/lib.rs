@@ -41,6 +41,7 @@
 
 mod api;
 pub mod auth;
+mod coord;
 mod err;
 mod grid;
 mod hsref;
@@ -53,6 +54,7 @@ use chrono::DateTime;
 use chrono_tz::Tz;
 use err::Result;
 pub use err::{Error, ErrorKind};
+pub use coord::Coord;
 pub use grid::{Grid, ParseJsonGridError};
 pub use hsref::{ParseRefError, Ref};
 pub use number::Number;
