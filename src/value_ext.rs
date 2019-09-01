@@ -1,5 +1,5 @@
 use crate::{Number, Ref};
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveTime};
 use serde_json::Value;
 
 /// An extension trait for the `serde_json::Value` enum,
@@ -7,7 +7,7 @@ use serde_json::Value;
 /// parse specific Haystack types from the underlying JSON
 /// value.
 pub trait ValueExt {
-    /// Convert the JSON value to a date.
+    /// Convert the JSON value to a Haystack date.
     fn as_hs_date(&self) -> Option<NaiveDate>;
     /// Convert the JSON value to a Haystack Number.
     fn as_hs_number(&self) -> Option<Number>;
@@ -16,6 +16,8 @@ pub trait ValueExt {
     /// Parse the JSON value as a Haystack string, removing
     /// the "s:" prefix if necessary.
     fn as_hs_str(&self) -> Option<&str>;
+    /// Convert the JSON value to a Haystack time.
+    fn as_hs_time(&self) -> Option<NaiveTime>;
     /// Returns true if the JSON value represents a Haystack
     /// date.
     fn is_hs_date(&self) -> bool;
@@ -37,6 +39,9 @@ pub trait ValueExt {
     /// Returns true if the JSON value represents a Haystack
     /// string.
     fn is_hs_str(&self) -> bool;
+    /// Returns true if the JSON value represents a Haystack
+    /// time.
+    fn is_hs_time(&self) -> bool;
 }
 
 impl ValueExt for Value {
@@ -72,6 +77,18 @@ impl ValueExt for Value {
         self.as_str().and_then(|s| match haystack_type(s) {
             JsonStringHaystackType::PlainString => Some(s),
             JsonStringHaystackType::PrefixedString => Some(trim_hs_prefix(s)),
+            _ => None,
+        })
+    }
+
+    fn as_hs_time(&self) -> Option<NaiveTime> {
+        self.as_str().and_then(|s| match haystack_type(s) {
+            JsonStringHaystackType::Time => {
+                let time_str = trim_hs_prefix(s);
+                NaiveTime::parse_from_str(time_str, "%k:%M:%S")
+                    .ok()
+                    .or(NaiveTime::parse_from_str(time_str, "%k:%M").ok())
+            }
             _ => None,
         })
     }
@@ -123,6 +140,10 @@ impl ValueExt for Value {
 
     fn is_hs_str(&self) -> bool {
         self.as_hs_str().is_some()
+    }
+
+    fn is_hs_time(&self) -> bool {
+        self.as_hs_time().is_some()
     }
 }
 
@@ -297,5 +318,41 @@ mod test {
             number_val.as_hs_date().unwrap(),
             NaiveDate::from_ymd(2014, 12, 1)
         );
+    }
+
+    #[test]
+    fn as_hs_time() {
+        use chrono::NaiveTime;
+
+        let time_val = json!("h:23:59");
+        let time = time_val.as_hs_time().unwrap();
+        assert_eq!(time, NaiveTime::from_hms(23, 59, 0));
+    }
+
+    #[test]
+    fn as_hs_time_with_seconds() {
+        use chrono::NaiveTime;
+
+        let time_val = json!("h:23:59:15");
+        let time = time_val.as_hs_time().unwrap();
+        assert_eq!(time, NaiveTime::from_hms(23, 59, 15));
+    }
+
+    #[test]
+    fn as_hs_time_with_no_hour_padding() {
+        use chrono::NaiveTime;
+
+        let time_val = json!("h:3:59");
+        let time = time_val.as_hs_time().unwrap();
+        assert_eq!(time, NaiveTime::from_hms(3, 59, 0));
+    }
+
+    #[test]
+    fn as_hs_time_with_no_hour_padding_and_seconds() {
+        use chrono::NaiveTime;
+
+        let time_val = json!("h:3:59:15");
+        let time = time_val.as_hs_time().unwrap();
+        assert_eq!(time, NaiveTime::from_hms(3, 59, 15));
     }
 }
