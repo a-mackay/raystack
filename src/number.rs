@@ -42,9 +42,15 @@ impl Number {
         let unit_str = split.next();
 
         if let Some(number_str) = number_str {
-            let number: f64 = number_str
-                .parse()
-                .map_err(|_| ParseNumberError::from_str(&json_string))?;
+            let number = if number_str == "INF" {
+                std::f64::INFINITY
+            } else if number_str == "-INF" {
+                std::f64::NEG_INFINITY
+            } else {
+                number_str
+                    .parse()
+                    .map_err(|_| ParseNumberError::from_str(&json_string))?
+            };
             let unit = unit_str.map(|unit_str| unit_str.trim().to_string());
             Ok(Number::new(number, unit))
         } else {
@@ -94,6 +100,60 @@ mod test {
         let unit = "n:73.2 °F";
         let number_with_unit = Number::from_encoded_json_string(unit).unwrap();
         assert_eq!(number_with_unit.value(), 73.2);
+        assert_eq!(number_with_unit.unit(), Some("°F"))
+    }
+
+    #[test]
+    fn from_encoded_json_string_infinity() {
+        let unitless = "n:INF";
+        assert_eq!(
+            Number::from_encoded_json_string(unitless).unwrap().value(),
+            std::f64::INFINITY,
+        );
+
+        let unit = "n:INF °F";
+        let number_with_unit = Number::from_encoded_json_string(unit).unwrap();
+        assert_eq!(number_with_unit.value(), std::f64::INFINITY);
+        assert_eq!(number_with_unit.unit(), Some("°F"))
+    }
+
+    #[test]
+    fn from_encoded_json_string_neg_infinity() {
+        let unitless = "n:-INF";
+        assert_eq!(
+            Number::from_encoded_json_string(unitless).unwrap().value(),
+            std::f64::NEG_INFINITY,
+        );
+
+        let unit = "n:-INF °F";
+        let number_with_unit = Number::from_encoded_json_string(unit).unwrap();
+        assert_eq!(number_with_unit.value(), std::f64::NEG_INFINITY);
+        assert_eq!(number_with_unit.unit(), Some("°F"))
+    }
+
+    #[test]
+    fn from_encoded_json_string_signless_nan() {
+        let unitless = "n:NaN";
+        assert!(
+            Number::from_encoded_json_string(unitless).unwrap().value().is_nan(),
+        );
+
+        let unit = "n:NaN °F";
+        let number_with_unit = Number::from_encoded_json_string(unit).unwrap();
+        assert!(number_with_unit.value().is_nan());
+        assert_eq!(number_with_unit.unit(), Some("°F"))
+    }
+
+    #[test]
+    fn from_encoded_json_string_signed_nan() {
+        let unitless = "n:-NaN";
+        assert!(
+            Number::from_encoded_json_string(unitless).unwrap().value().is_nan(),
+        );
+
+        let unit = "n:+NaN °F";
+        let number_with_unit = Number::from_encoded_json_string(unit).unwrap();
+        assert!(number_with_unit.value().is_nan());
         assert_eq!(number_with_unit.unit(), Some("°F"))
     }
 }
