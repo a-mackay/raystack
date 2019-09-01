@@ -1,5 +1,5 @@
 use crate::{Coord, Number, Ref};
-use chrono::{NaiveDate, NaiveTime};
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime};
 use serde_json::Value;
 
 /// An extension trait for the `serde_json::Value` enum,
@@ -11,6 +11,10 @@ pub trait ValueExt {
     fn as_hs_coord(&self) -> Option<Coord>;
     /// Convert the JSON value to a Haystack date.
     fn as_hs_date(&self) -> Option<NaiveDate>;
+    /// Convert the JSON value to a tuple containing a
+    /// DateTime with a fixed timezone offset, and a string
+    /// containing the Haystack timezone name.
+    fn as_hs_date_time(&self) -> Option<(DateTime<FixedOffset>, &str)>;
     /// Convert the JSON value to a Haystack Number.
     fn as_hs_number(&self) -> Option<Number>;
     /// Convert the JSON value to a Haystack Ref.
@@ -30,6 +34,9 @@ pub trait ValueExt {
     /// Returns true if the JSON value represents a Haystack
     /// date.
     fn is_hs_date(&self) -> bool;
+    /// Returns true if the JSON value represents a Haystack
+    /// DateTime.
+    fn is_hs_date_time(&self) -> bool;
     /// Returns true if the JSON value represents a Haystack
     /// marker.
     fn is_hs_marker(&self) -> bool;
@@ -80,6 +87,26 @@ impl ValueExt for Value {
             JsonStringHaystackType::Date => {
                 let date_str = trim_hs_prefix(s);
                 NaiveDate::parse_from_str(date_str, "%Y-%m-%d").ok()
+            }
+            _ => None,
+        })
+    }
+
+    fn as_hs_date_time(&self) -> Option<(DateTime<FixedOffset>, &str)> {
+        self.as_str().and_then(|s| match haystack_type(s) {
+            JsonStringHaystackType::DateTime => {
+                let mut split = trim_hs_prefix(s).split(' ');
+                let date_time = split
+                    .next()
+                    .and_then(|s| DateTime::parse_from_rfc3339(s).ok());
+                let time_zone_name = split.next();
+                let tuple = (date_time, time_zone_name);
+                match tuple {
+                    (Some(date_time), Some(time_zone_name)) => {
+                        Some((date_time, time_zone_name))
+                    }
+                    _ => None,
+                }
             }
             _ => None,
         })
@@ -145,6 +172,10 @@ impl ValueExt for Value {
 
     fn is_hs_date(&self) -> bool {
         self.as_hs_date().is_some()
+    }
+
+    fn is_hs_date_time(&self) -> bool {
+        self.as_hs_date_time().is_some()
     }
 
     fn is_hs_marker(&self) -> bool {
@@ -435,5 +466,21 @@ mod test {
         let coord_val = json!("c:37.545,-77.449");
         let coord = coord_val.as_hs_coord().unwrap();
         assert_eq!(coord, Coord::new(37.545, -77.449));
+    }
+
+    #[test]
+    fn as_hs_date_time() {
+        use chrono::{FixedOffset, TimeZone};
+        let hour = 3600;
+
+        let dt_val = json!("t:2015-06-08T15:47:41-04:00 New_York");
+        let (dt, tz_name) = dt_val.as_hs_date_time().unwrap();
+        assert_eq!(tz_name, "New_York");
+        assert_eq!(
+            dt,
+            FixedOffset::west(4 * hour)
+                .ymd(2015, 6, 8)
+                .and_hms(15, 47, 41),
+        );
     }
 }
