@@ -68,10 +68,10 @@ impl ValueExt for Value {
                 let lng = split.next().and_then(|s| str::parse(s).ok());
                 match (lat, lng) {
                     (Some(lat), Some(lng)) => Some(Coord::new(lat, lng)),
-                    _ => None
+                    _ => None,
                 }
             }
-            _ => None
+            _ => None,
         })
     }
 
@@ -117,7 +117,9 @@ impl ValueExt for Value {
                 let time_str = trim_hs_prefix(s);
                 NaiveTime::parse_from_str(time_str, "%k:%M:%S")
                     .ok()
-                    .or(NaiveTime::parse_from_str(time_str, "%k:%M").ok())
+                    .or_else(|| {
+                        NaiveTime::parse_from_str(time_str, "%k:%M").ok()
+                    })
             }
             _ => None,
         })
