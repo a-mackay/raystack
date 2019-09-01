@@ -17,7 +17,12 @@
 //!     ```
 //! 1. Put this in `main.rs` to create and use a `SkySparkClient`:
 //!     ```rust,no_run
-//!     use raystack::{HaystackRest, SkySparkClient, SkySparkRest};
+//!     use raystack::{
+//!         HaystackRest,
+//!         SkySparkClient,
+//!         SkySparkRest,
+//!         ValueExt,
+//!     };
 //!     use url::Url;
 //!     
 //!     fn main() {
@@ -30,7 +35,7 @@
 //!     
 //!         // Working with the Grid struct:
 //!         println!("All columns: {:?}", sites_grid.cols());
-//!         println!("first site id: {:?}", sites_grid.rows()[0]["id"].as_str().unwrap());
+//!         println!("first site id: {:?}", sites_grid.rows()[0]["id"].as_hs_ref().unwrap());
 //!     }
 //!     ```
 //!
@@ -57,7 +62,7 @@ use err::Result;
 pub use err::{Error, ErrorKind};
 pub use grid::{Grid, ParseJsonGridError};
 pub use hsref::{ParseRefError, Ref};
-pub use number::Number;
+pub use number::{Number, ParseNumberError};
 use reqwest::Client as ReqwestClient;
 use serde_json::json;
 use std::convert::TryInto;

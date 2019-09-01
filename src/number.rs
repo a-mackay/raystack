@@ -1,3 +1,6 @@
+/// A Haystack Number, encapsulating a scalar value and
+/// an optional unit value. The unit is represented as a
+/// string.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Number {
     value: f64,
@@ -5,18 +8,31 @@ pub struct Number {
 }
 
 impl Number {
+    /// Create a new `Number`. If present, the unit should
+    /// be a valid unit string from Project Haystack's
+    /// unit database.
     pub fn new(value: f64, unit: Option<String>) -> Self {
         Self { value, unit }
     }
 
+    /// Return the numeric component of this `Number`.
     pub fn value(&self) -> f64 {
         self.value
     }
 
+    /// Return the unit component of this `Number`, if present.
     pub fn unit(&self) -> Option<&str> {
         self.unit.as_ref().map(|unit| unit.as_ref())
     }
 
+    /// Parse a `Number` from a number encoded in a JSON string.
+    /// # Example
+    /// ```rust
+    /// use raystack::Number;
+    /// 
+    /// let n = Number::new(1.0, Some("pH".to_owned()));
+    /// assert_eq!(Number::from_encoded_json_string("n:1.0 pH").unwrap(), n);
+    /// ```
     pub fn from_encoded_json_string(
         json_string: &str,
     ) -> Result<Self, ParseNumberError> {

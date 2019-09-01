@@ -9,7 +9,7 @@ use serde_json::Value;
 pub trait ValueExt {
     /// Convert the JSON value to a Haystack Coord.
     fn as_hs_coord(&self) -> Option<Coord>;
-    /// Convert the JSON value to a Haystack date.
+    /// Convert the JSON value to a Haystack Date.
     fn as_hs_date(&self) -> Option<NaiveDate>;
     /// Convert the JSON value to a tuple containing a
     /// DateTime with a fixed timezone offset, and a string
@@ -19,12 +19,12 @@ pub trait ValueExt {
     fn as_hs_number(&self) -> Option<Number>;
     /// Convert the JSON value to a Haystack Ref.
     fn as_hs_ref(&self) -> Option<Ref>;
-    /// Parse the JSON value as a Haystack string, removing
+    /// Parse the JSON value as a Haystack Str, removing
     /// the "s:" prefix if necessary.
     fn as_hs_str(&self) -> Option<&str>;
-    /// Convert the JSON value to a Haystack time.
+    /// Convert the JSON value to a Haystack Time.
     fn as_hs_time(&self) -> Option<NaiveTime>;
-    /// Return the Haystack URI value as a string.
+    /// Returns the Haystack URI value as a string.
     fn as_hs_uri(&self) -> Option<&str>;
     /// Return the Haystack XStr value as a string.
     fn as_hs_xstr(&self) -> Option<&str>;
@@ -32,7 +32,7 @@ pub trait ValueExt {
     /// Coord.
     fn is_hs_coord(&self) -> bool;
     /// Returns true if the JSON value represents a Haystack
-    /// date.
+    /// Date.
     fn is_hs_date(&self) -> bool;
     /// Returns true if the JSON value represents a Haystack
     /// DateTime.
@@ -53,10 +53,10 @@ pub trait ValueExt {
     /// remove marker.
     fn is_hs_remove_marker(&self) -> bool;
     /// Returns true if the JSON value represents a Haystack
-    /// string.
+    /// Str.
     fn is_hs_str(&self) -> bool;
     /// Returns true if the JSON value represents a Haystack
-    /// time.
+    /// Time.
     fn is_hs_time(&self) -> bool;
     /// Returns true if the JSON value represents a Haystack
     /// URI.
