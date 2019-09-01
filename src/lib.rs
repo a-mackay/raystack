@@ -44,6 +44,7 @@ pub mod auth;
 mod err;
 mod grid;
 mod hsref;
+mod number;
 mod value_ext;
 
 use api::HaystackUrl;
@@ -54,6 +55,7 @@ use err::Result;
 pub use err::{Error, ErrorKind};
 pub use grid::{Grid, ParseJsonGridError};
 pub use hsref::{ParseRefError, Ref};
+pub use number::Number;
 use reqwest::Client as ReqwestClient;
 use serde_json::json;
 use std::convert::TryInto;

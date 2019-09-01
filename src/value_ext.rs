@@ -1,4 +1,5 @@
-use crate::Ref;
+use crate::{Number, Ref};
+use chrono::NaiveDate;
 use serde_json::Value;
 
 /// An extension trait for the `serde_json::Value` enum,
@@ -6,18 +7,27 @@ use serde_json::Value;
 /// parse specific Haystack types from the underlying JSON
 /// value.
 pub trait ValueExt {
-    // fn as_hs_number(&self) -> Option<Number>; // TODO
+    /// Convert the JSON value to a date.
+    fn as_hs_date(&self) -> Option<NaiveDate>;
+    /// Convert the JSON value to a Haystack Number.
+    fn as_hs_number(&self) -> Option<Number>;
     /// Convert the JSON value to a Haystack Ref.
     fn as_hs_ref(&self) -> Option<Ref>;
     /// Parse the JSON value as a Haystack string, removing
     /// the "s:" prefix if necessary.
     fn as_hs_str(&self) -> Option<&str>;
     /// Returns true if the JSON value represents a Haystack
+    /// date.
+    fn is_hs_date(&self) -> bool;
+    /// Returns true if the JSON value represents a Haystack
     /// marker.
     fn is_hs_marker(&self) -> bool;
     /// Returns true if the JSON value represents a Haystack
     /// NA value.
     fn is_hs_na(&self) -> bool;
+    /// Returns true if the JSON value represents a Haystack
+    /// Number.
+    fn is_hs_number(&self) -> bool;
     /// Returns true if the JSON value represents a Haystack
     /// Ref.
     fn is_hs_ref(&self) -> bool;
@@ -30,6 +40,25 @@ pub trait ValueExt {
 }
 
 impl ValueExt for Value {
+    fn as_hs_date(&self) -> Option<NaiveDate> {
+        self.as_str().and_then(|s| match haystack_type(s) {
+            JsonStringHaystackType::Date => {
+                let date_str = trim_hs_prefix(s);
+                NaiveDate::parse_from_str(date_str, "%Y-%m-%d").ok()
+            }
+            _ => None,
+        })
+    }
+
+    fn as_hs_number(&self) -> Option<Number> {
+        self.as_str().and_then(|s| match haystack_type(s) {
+            JsonStringHaystackType::Number => {
+                Number::from_encoded_json_string(s).ok()
+            }
+            _ => None,
+        })
+    }
+
     fn as_hs_ref(&self) -> Option<Ref> {
         self.as_str().and_then(|s| match haystack_type(s) {
             JsonStringHaystackType::Ref => {
@@ -45,6 +74,10 @@ impl ValueExt for Value {
             JsonStringHaystackType::PrefixedString => Some(trim_hs_prefix(s)),
             _ => None,
         })
+    }
+
+    fn is_hs_date(&self) -> bool {
+        self.as_hs_date().is_some()
     }
 
     fn is_hs_marker(&self) -> bool {
@@ -67,6 +100,10 @@ impl ValueExt for Value {
         } else {
             false
         }
+    }
+
+    fn is_hs_number(&self) -> bool {
+        self.as_hs_number().is_some()
     }
 
     fn is_hs_ref(&self) -> bool {
@@ -231,6 +268,34 @@ mod test {
         assert_eq!(
             ref_val_and_display_name.as_hs_ref().unwrap().as_ref(),
             "@abc-123"
+        );
+    }
+
+    #[test]
+    fn as_hs_number() {
+        use crate::Number;
+
+        let number_val = json!("n:25.123 celsius");
+        assert_eq!(
+            number_val.as_hs_number().unwrap(),
+            Number::new(25.123, Some("celsius".to_owned()))
+        );
+
+        let number_no_unit_val = json!("n:25.123");
+        assert_eq!(
+            number_no_unit_val.as_hs_number().unwrap(),
+            Number::new(25.123, None)
+        );
+    }
+
+    #[test]
+    fn as_hs_date() {
+        use chrono::NaiveDate;
+
+        let number_val = json!("d:2014-12-01");
+        assert_eq!(
+            number_val.as_hs_date().unwrap(),
+            NaiveDate::from_ymd(2014, 12, 1)
         );
     }
 }
