@@ -44,6 +44,7 @@ pub mod auth;
 mod err;
 mod grid;
 mod hsref;
+mod value_ext;
 
 use api::HaystackUrl;
 pub use api::{HaystackRest, HisReadRange, SkySparkRest};
@@ -57,6 +58,7 @@ use reqwest::Client as ReqwestClient;
 use serde_json::json;
 use std::convert::TryInto;
 use url::Url;
+pub use value_ext::ValueExt;
 
 /// A client for interacting with a SkySpark server.
 #[derive(Debug)]
@@ -133,7 +135,6 @@ impl SkySparkClient {
     fn res_to_grid(mut res: reqwest::Response) -> Result<Grid> {
         let json: serde_json::Value = res.json()?;
         let grid: Grid = json.try_into()?;
-        // .map_err(|err: ParseJsonGridError| err.into())?;
 
         if grid.is_error() {
             Err(Error::new(ErrorKind::Grid { err_grid: grid }))
