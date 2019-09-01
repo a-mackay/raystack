@@ -134,9 +134,10 @@ mod test {
     #[test]
     fn from_encoded_json_string_signless_nan() {
         let unitless = "n:NaN";
-        assert!(
-            Number::from_encoded_json_string(unitless).unwrap().value().is_nan(),
-        );
+        assert!(Number::from_encoded_json_string(unitless)
+            .unwrap()
+            .value()
+            .is_nan());
 
         let unit = "n:NaN °F";
         let number_with_unit = Number::from_encoded_json_string(unit).unwrap();
@@ -147,9 +148,10 @@ mod test {
     #[test]
     fn from_encoded_json_string_signed_nan() {
         let unitless = "n:-NaN";
-        assert!(
-            Number::from_encoded_json_string(unitless).unwrap().value().is_nan(),
-        );
+        assert!(Number::from_encoded_json_string(unitless)
+            .unwrap()
+            .value()
+            .is_nan());
 
         let unit = "n:+NaN °F";
         let number_with_unit = Number::from_encoded_json_string(unit).unwrap();
