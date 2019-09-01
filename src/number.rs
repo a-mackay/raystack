@@ -29,7 +29,7 @@ impl Number {
     /// # Example
     /// ```rust
     /// use raystack::Number;
-    /// 
+    ///
     /// let n = Number::new(1.0, Some("pH".to_owned()));
     /// assert_eq!(Number::from_encoded_json_string("n:1.0 pH").unwrap(), n);
     /// ```
