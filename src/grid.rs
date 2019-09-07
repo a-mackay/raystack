@@ -3,6 +3,7 @@ use serde_json::json;
 use serde_json::map::Map;
 use serde_json::Value;
 use serde_json::{to_string, to_string_pretty};
+use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::iter::FromIterator;
@@ -140,6 +141,11 @@ impl Grid {
             .collect()
     }
 
+    /// Return a vector containing the values in the given column.
+    pub fn col_to_vec(&self, col_name: &str) -> Vec<Option<&Value>> {
+        self.rows().iter().map(|row| row.get(col_name)).collect()
+    }
+
     /// Return a vector of JSON values which represent the rows of the grid.
     pub fn rows(&self) -> &Vec<Value> {
         &self.json["rows"].as_array().expect("rows is a JSON Array")
@@ -152,6 +158,12 @@ impl Grid {
             .as_array()
             .expect("rows is a JSON Array")
             .to_vec()
+    }
+
+    /// Sort the rows with a comparator function. This sort is stable.
+    pub fn sort_rows<F>(&mut self, compare: F) where F: FnMut(&Value, &Value) -> Ordering {
+        let rows = self.json["rows"].as_array_mut().expect("rows is a JSON Array");
+        rows.sort_by(compare);
     }
 
     /// Return the string representation of the underlying JSON value.
@@ -349,5 +361,47 @@ mod test {
         assert_eq!(grid.col_names().len(), 2);
 
         println!("{}", grid.to_csv_string().unwrap());
+    }
+
+    #[test]
+    fn col_to_vec() {
+        let rows = vec![
+            json!({"id": "a"}),
+            json!({"different": "thing"}),
+            json!({"id": "b"}),
+            json!({"id": "c"}),
+        ];
+        let grid = Grid::new(rows).unwrap();
+        let col = grid.col_to_vec("id");
+
+        assert_eq!(col[0].unwrap().as_str().unwrap(), "a");
+        assert!(col[1].is_none());
+        assert_eq!(col[2].unwrap().as_str().unwrap(), "b");
+        assert_eq!(col[3].unwrap().as_str().unwrap(), "c");
+    }
+
+    #[test]
+    fn sort_rows() {
+        let rows = vec![
+            json!({"id": "b"}),
+            json!({"id": "d"}),
+            json!({"id": "a"}),
+            json!({"id": "c"}),
+        ];
+        let mut grid = Grid::new(rows).unwrap();
+
+        {
+        let original_cols = grid.col_to_vec("id").into_iter().map(|elem| elem.unwrap().as_str().unwrap()).collect::<Vec<_>>();
+        assert_eq!(original_cols, vec!["b", "d", "a", "c"]);
+        }
+
+        grid.sort_rows(|row1, row2| {
+            let str1 = row1["id"].as_str().unwrap();
+            let str2 = row2["id"].as_str().unwrap();
+            str1.cmp(str2)
+        });
+        
+        let new_cols = grid.col_to_vec("id").into_iter().map(|elem| elem.unwrap().as_str().unwrap()).collect::<Vec<_>>();
+        assert_eq!(new_cols, vec!["a", "b", "c", "d"]);
     }
 }
