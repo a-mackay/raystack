@@ -51,6 +51,7 @@ mod err;
 mod grid;
 mod hsref;
 mod number;
+mod tag;
 mod value_ext;
 
 use api::HaystackUrl;
@@ -66,6 +67,7 @@ pub use number::{Number, ParseNumberError};
 use reqwest::Client as ReqwestClient;
 use serde_json::json;
 use std::convert::TryInto;
+pub use tag::{is_tag_name, ParseTagNameError, TagName};
 use url::Url;
 pub use value_ext::ValueExt;
 

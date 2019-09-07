@@ -1,4 +1,5 @@
 use crate::hsref::Ref;
+use crate::{is_tag_name, TagName};
 use serde_json::json;
 use serde_json::map::Map;
 use serde_json::Value;
@@ -42,6 +43,15 @@ impl Grid {
 
         let mut sorted_keys = keys.into_iter().collect::<Vec<_>>();
         sorted_keys.sort();
+
+        for &key in &sorted_keys {
+            if !is_tag_name(key) {
+                return Err(ParseJsonGridError::new(format!(
+                    "Column name '{}' is not a valid tag name",
+                    key
+                )));
+            }
+        }
 
         let cols = Value::Array(
             sorted_keys
@@ -101,22 +111,24 @@ impl Grid {
 
     /// Add a new column, or overwrite an existing column by mapping
     /// each row to a new cell value.
-    pub fn add_col<F>(&mut self, col_name: &str, f: F)
+    pub fn add_col<F>(&mut self, col_name: TagName, f: F)
     where
         F: Fn(&mut Map<String, Value>) -> Value,
     {
+        let col_name = col_name.to_string();
+
         for row in self.json["rows"]
             .as_array_mut()
             .expect("rows is a JSON Array")
         {
             let row = row.as_object_mut().expect("Each row is a JSON object");
             let value = f(row);
-            row.insert(col_name.to_owned(), value);
+            row.insert(col_name.clone(), value);
         }
 
         let mut new_col_names: HashSet<&str> =
-            HashSet::from_iter(self.col_names());
-        new_col_names.insert(col_name);
+            HashSet::from_iter(self.col_name_strs());
+        new_col_names.insert(&col_name);
         let mut new_col_names = new_col_names.into_iter().collect::<Vec<_>>();
         new_col_names.sort();
         let new_col_objects =
@@ -134,7 +146,20 @@ impl Grid {
     }
 
     /// Return a vector containing the column names in this grid.
-    pub fn col_names(&self) -> Vec<&str> {
+    pub fn col_names(&self) -> Vec<TagName> {
+        self.cols()
+            .iter()
+            .map(|col| {
+                let name =
+                    col["name"].as_str().expect("col name is a JSON string");
+                TagName::new(name.to_owned())
+                    .expect("col names in grid are valid tag names")
+            })
+            .collect()
+    }
+
+    /// Return a vector containing the column names in this grid, as strings.
+    pub fn col_name_strs(&self) -> Vec<&str> {
         self.cols()
             .iter()
             .map(|col| col["name"].as_str().expect("col name is a JSON string"))
@@ -161,8 +186,13 @@ impl Grid {
     }
 
     /// Sort the rows with a comparator function. This sort is stable.
-    pub fn sort_rows<F>(&mut self, compare: F) where F: FnMut(&Value, &Value) -> Ordering {
-        let rows = self.json["rows"].as_array_mut().expect("rows is a JSON Array");
+    pub fn sort_rows<F>(&mut self, compare: F)
+    where
+        F: FnMut(&Value, &Value) -> Ordering,
+    {
+        let rows = self.json["rows"]
+            .as_array_mut()
+            .expect("rows is a JSON Array");
         rows.sort_by(compare);
     }
 
@@ -202,7 +232,7 @@ impl Grid {
     pub fn to_csv_string(&self) -> Result<String, crate::Error> {
         let mut writer = csv::Writer::from_writer(vec![]);
 
-        let col_names = self.col_names();
+        let col_names = self.col_name_strs();
         writer.write_record(&col_names)?;
 
         for row in self.rows() {
@@ -303,6 +333,7 @@ impl std::fmt::Display for ParseJsonGridError {
 #[cfg(test)]
 mod test {
     use super::Grid;
+    use crate::TagName;
     use serde_json::json;
 
     #[test]
@@ -313,7 +344,9 @@ mod test {
         ];
         let mut grid = Grid::new(rows).unwrap();
 
-        grid.add_col("newCol", |row| {
+        let new_col = TagName::new("newCol".to_owned()).unwrap();
+
+        grid.add_col(new_col, |row| {
             let id = row["id"].as_str().unwrap();
             let dis = row["dis"].as_str().unwrap();
             json!(id.to_string() + dis)
@@ -329,7 +362,9 @@ mod test {
         );
         assert!(grid.to_string().contains("abcd1234Hello World"));
         assert!(grid.to_string().contains("cdef5678Hello Kitty"));
-        assert!(grid.col_names().contains(&"newCol"));
+        assert!(grid
+            .col_names()
+            .contains(&TagName::new("newCol".to_owned()).unwrap()));
 
         println!("{}", grid.to_csv_string().unwrap());
     }
@@ -342,7 +377,9 @@ mod test {
         ];
         let mut grid = Grid::new(rows).unwrap();
 
-        grid.add_col("dis", |row| {
+        let col_name = TagName::new("dis".to_owned()).unwrap();
+
+        grid.add_col(col_name, |row| {
             let id = row["id"].as_str().unwrap();
             let dis = row["dis"].as_str().unwrap();
             json!(id.to_string() + dis)
@@ -391,8 +428,12 @@ mod test {
         let mut grid = Grid::new(rows).unwrap();
 
         {
-        let original_cols = grid.col_to_vec("id").into_iter().map(|elem| elem.unwrap().as_str().unwrap()).collect::<Vec<_>>();
-        assert_eq!(original_cols, vec!["b", "d", "a", "c"]);
+            let original_cols = grid
+                .col_to_vec("id")
+                .into_iter()
+                .map(|elem| elem.unwrap().as_str().unwrap())
+                .collect::<Vec<_>>();
+            assert_eq!(original_cols, vec!["b", "d", "a", "c"]);
         }
 
         grid.sort_rows(|row1, row2| {
@@ -400,8 +441,19 @@ mod test {
             let str2 = row2["id"].as_str().unwrap();
             str1.cmp(str2)
         });
-        
-        let new_cols = grid.col_to_vec("id").into_iter().map(|elem| elem.unwrap().as_str().unwrap()).collect::<Vec<_>>();
+
+        let new_cols = grid
+            .col_to_vec("id")
+            .into_iter()
+            .map(|elem| elem.unwrap().as_str().unwrap())
+            .collect::<Vec<_>>();
         assert_eq!(new_cols, vec!["a", "b", "c", "d"]);
+    }
+
+    #[test]
+    fn bad_col_name() {
+        let rows = vec![json!({"id": "d"}), json!({"BadTagName": "b"})];
+        let grid = Grid::new(rows);
+        assert!(grid.is_err());
     }
 }
