@@ -20,6 +20,14 @@ impl Error {
         self.kind
     }
 
+    /// Return true if this error encapsulates a Haystack error grid.
+    pub fn is_grid(&self) -> bool {
+        match self.kind() {
+            ErrorKind::Grid { .. } => true,
+            _ => false,
+        }
+    }
+
     pub(crate) fn new(kind: ErrorKind) -> Self {
         Error { kind }
     }
