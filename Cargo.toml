@@ -1,11 +1,13 @@
 [package]
 name = "raystack"
-version = "0.3.2"
+version = "0.4.0"
 authors = ["a-mackay <amackayfoss@outlook.com>"]
 license = "MIT"
 edition = "2018"
 repository = "https://github.com/a-mackay/raystack"
 description = "WIP SkySpark client"
+keywords = ["skyspark", "haystack"]
+
 
 [dependencies]
 base64 = "0.10.1"
