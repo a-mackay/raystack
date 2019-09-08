@@ -1,5 +1,8 @@
 # raystack
 
+[![crates.io](https://img.shields.io/crates/v/raystack.svg)](https://crates.io/crates/raystack)
+[![Documentation](https://docs.rs/raystack/badge.svg)](https://docs.rs/raystack)
+
 A SkySpark 3 client library for Rust.
 
 ## Documentation
