@@ -196,6 +196,11 @@ impl Grid {
         rows.sort_by(compare);
     }
 
+    /// Return the number of rows in the grid.
+    pub fn size(&self) -> usize {
+        self.rows().len()
+    }
+
     /// Return the string representation of the underlying JSON value.
     pub fn to_string(&self) -> String {
         to_string(&self.json)
@@ -455,5 +460,14 @@ mod test {
         let rows = vec![json!({"id": "d"}), json!({"BadTagName": "b"})];
         let grid = Grid::new(rows);
         assert!(grid.is_err());
+    }
+
+    #[test]
+    fn size() {
+        let empty_grid = Grid::new(vec![]).unwrap();
+        assert_eq!(empty_grid.size(), 0);
+        let rows = vec![json!({"id": "1"}), json!({"id": "2"})];
+        let grid = Grid::new(rows).unwrap();
+        assert_eq!(grid.size(), 2);
     }
 }
