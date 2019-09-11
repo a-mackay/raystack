@@ -201,6 +201,11 @@ impl Grid {
         self.rows().len()
     }
 
+    /// Return true if the grid has no rows.
+    pub fn is_empty(&self) -> bool {
+        self.rows().is_empty()
+    }
+
     /// Return the string representation of the underlying JSON value.
     pub fn to_string(&self) -> String {
         to_string(&self.json)
