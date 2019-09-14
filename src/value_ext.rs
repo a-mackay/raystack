@@ -123,9 +123,7 @@ impl ValueExt for Value {
 
     fn as_hs_ref(&self) -> Option<Ref> {
         self.as_str().and_then(|s| match haystack_type(s) {
-            JsonStringHaystackType::Ref => {
-                Ref::from_encoded_json_string(s).ok()
-            }
+            JsonStringHaystackType::Ref => Ref::from_encoded_json_string(s).ok(),
             _ => None,
         })
     }
@@ -144,9 +142,7 @@ impl ValueExt for Value {
                 let time_str = trim_hs_prefix(s);
                 NaiveTime::parse_from_str(time_str, "%k:%M:%S")
                     .ok()
-                    .or_else(|| {
-                        NaiveTime::parse_from_str(time_str, "%k:%M").ok()
-                    })
+                    .or_else(|| NaiveTime::parse_from_str(time_str, "%k:%M").ok())
             }
             _ => None,
         })

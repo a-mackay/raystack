@@ -74,8 +74,7 @@ impl Grid {
     }
 
     pub(crate) fn new_internal(rows: Vec<Value>) -> Self {
-        Self::new(rows)
-            .expect("creating grids within this crate should never fail")
+        Self::new(rows).expect("creating grids within this crate should never fail")
     }
 
     /// Return a map which represents the metadata for the grid.
@@ -131,8 +130,7 @@ impl Grid {
 
     /// Add column names to the grid.
     fn add_col_names(&mut self, col_names: &[TagName]) {
-        let mut all_names: HashSet<&str> =
-            HashSet::from_iter(self.col_name_strs());
+        let mut all_names: HashSet<&str> = HashSet::from_iter(self.col_name_strs());
 
         for col_name in col_names {
             all_names.insert(col_name.as_ref());
@@ -141,8 +139,7 @@ impl Grid {
         let mut all_names = all_names.into_iter().collect::<Vec<_>>();
         all_names.sort();
 
-        let all_objects =
-            all_names.iter().map(|c| json!({ "name": c })).collect();
+        let all_objects = all_names.iter().map(|c| json!({ "name": c })).collect();
 
         self.json["cols"] = Value::Array(all_objects);
     }
@@ -161,8 +158,7 @@ impl Grid {
         self.cols()
             .iter()
             .map(|col| {
-                let name =
-                    col["name"].as_str().expect("col name is a JSON string");
+                let name = col["name"].as_str().expect("col name is a JSON string");
                 TagName::new(name.to_owned())
                     .expect("col names in grid are valid tag names")
             })
@@ -214,11 +210,14 @@ impl Grid {
 
     /// Add rows to the grid. The rows to add must be a `Vec` containing
     /// only JSON objects.
-    pub fn add_rows(&mut self, mut rows: Vec<Value>) -> Result<(), ParseJsonGridError> {
+    pub fn add_rows(
+        &mut self,
+        mut rows: Vec<Value>,
+    ) -> Result<(), ParseJsonGridError> {
         // Validate the rows being added:
         if rows.iter().any(|row| !row.is_object()) {
-            let msg = format!("At least one row being added is not a JSON object");
-            return Err(ParseJsonGridError::new(msg))
+            let msg = "At least one row being added is not a JSON object".to_owned();
+            return Err(ParseJsonGridError::new(msg));
         }
 
         let mut new_keys: HashSet<TagName> = HashSet::new();
@@ -230,9 +229,12 @@ impl Grid {
                 match TagName::new(key.to_string()) {
                     Some(tag_name) => {
                         new_keys.insert(tag_name);
-                    },
+                    }
                     None => {
-                        let msg = format!("The column name {} is not a valid tag name", key);
+                        let msg = format!(
+                            "The column name {} is not a valid tag name",
+                            key
+                        );
                         return Err(ParseJsonGridError::new(msg));
                     }
                 }
@@ -242,7 +244,9 @@ impl Grid {
         let new_keys = new_keys.into_iter().collect::<Vec<_>>();
         self.add_col_names(&new_keys);
 
-        let current_rows = self.json["rows"].as_array_mut().expect("rows is a JSON Array");
+        let current_rows = self.json["rows"]
+            .as_array_mut()
+            .expect("rows is a JSON Array");
         current_rows.append(&mut rows);
 
         Ok(())
@@ -260,8 +264,7 @@ impl Grid {
 
     /// Return the string representation of the underlying JSON value.
     pub fn to_string(&self) -> String {
-        to_string(&self.json)
-            .expect("serializing grid to String should never fail")
+        to_string(&self.json).expect("serializing grid to String should never fail")
     }
 
     /// Return a pretty formatted string representing the underlying JSON value.
@@ -530,9 +533,7 @@ mod test {
 
     #[test]
     fn add_rows() {
-        let rows = vec![
-            json!({"id": "a"}),
-        ];
+        let rows = vec![json!({"id": "a"})];
         let mut grid = Grid::new(rows).unwrap();
 
         let rows_to_add = vec![
@@ -562,9 +563,7 @@ mod test {
 
     #[test]
     fn add_no_rows() {
-        let rows = vec![
-            json!({"id": "a"}),
-        ];
+        let rows = vec![json!({"id": "a"})];
         let mut grid = Grid::new(rows).unwrap();
         assert_eq!(grid.size(), 1);
         grid.add_rows(vec![]).unwrap();
@@ -573,9 +572,7 @@ mod test {
 
     #[test]
     fn add_rows_without_json_object() {
-        let rows = vec![
-            json!({"id": "a"}),
-        ];
+        let rows = vec![json!({"id": "a"})];
         let mut grid = Grid::new(rows).unwrap();
 
         let rows_to_add = vec![
@@ -589,9 +586,7 @@ mod test {
 
     #[test]
     fn add_rows_with_invalid_tag_name() {
-        let rows = vec![
-            json!({"id": "a"}),
-        ];
+        let rows = vec![json!({"id": "a"})];
         let mut grid = Grid::new(rows).unwrap();
 
         let rows_to_add = vec![
