@@ -21,4 +21,15 @@ impl Coord {
     pub fn lng(&self) -> f64 {
         self.lng
     }
+
+    /// Return the string representation of this `Coord`.
+    pub fn to_string(&self) -> String {
+        format!("{}, {}", self.lat(), self.lng())
+    }
+}
+
+impl std::fmt::Display for Coord {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
 }
