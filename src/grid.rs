@@ -77,6 +77,11 @@ impl Grid {
         Self::new(rows).expect("creating grids within this crate should never fail")
     }
 
+    /// Create an empty grid.
+    pub fn empty() -> Self {
+        Self::new(vec![]).expect("creating an empty grid should never fail")
+    }
+
     /// Return a map which represents the metadata for the grid.
     pub fn meta(&self) -> &Map<String, Value> {
         &self.json["meta"]
@@ -265,6 +270,34 @@ impl Grid {
     /// Return true if the grid has no rows.
     pub fn is_empty(&self) -> bool {
         self.rows().is_empty()
+    }
+
+    /// Concatenate the rows in the given grid to the current grid.
+    pub fn concat_grid(&mut self, grid: Grid) {
+        let rows = grid.to_rows();
+        self.add_rows(rows)
+            .expect("adding rows from a Grid should never fail");
+    }
+
+    /// For each given grid, concatenate its rows to the current grid.
+    pub fn concat_grids(&mut self, grids: Vec<Grid>) {
+        for grid in grids {
+            self.concat_grid(grid);
+        }
+    }
+
+    /// Return a new grid which is formed by concatenating all the
+    /// given grids together.
+    pub fn concat_all(mut grids: Vec<Grid>) -> Grid {
+        match grids.len() {
+            0 => Grid::empty(),
+            1 => grids.remove(0),
+            _ => {
+                let mut first_grid = grids.remove(0);
+                first_grid.concat_grids(grids);
+                first_grid
+            }
+        }
     }
 
     /// Return the string representation of the underlying JSON value.
@@ -609,5 +642,55 @@ mod test {
         let grid = Grid::new(rows).unwrap();
         assert!(grid.has_col_name("id"));
         assert!(!grid.has_col_name("doesn't exist"));
+    }
+
+    #[test]
+    fn empty_grid() {
+        assert!(Grid::empty().is_empty());
+    }
+
+    #[test]
+    fn concat_all() {
+        let g1 = Grid::new(vec![json!({"id": "a"})]).unwrap();
+        let g2 = Grid::new(vec![json!({"id": "b"})]).unwrap();
+        let g3 = Grid::new(vec![json!({"id": "c"})]).unwrap();
+        let g4 = Grid::new(vec![json!({"id": "d"})]).unwrap();
+        let grids = vec![g1, g2, g3, g4];
+
+        let final_grid = Grid::concat_all(grids);
+        assert_eq!(final_grid.size(), 4);
+
+        let ids = final_grid
+            .col_to_vec("id")
+            .into_iter()
+            .map(|v| v.unwrap().as_str().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(ids, vec!["a", "b", "c", "d"]);
+    }
+
+    #[test]
+    fn concat_all_with_no_grids() {
+        let grids = vec![];
+        let final_grid = Grid::concat_all(grids);
+        assert!(final_grid.is_empty());
+    }
+
+    #[test]
+    fn concat_all_with_some_empty_grids() {
+        let g1 = Grid::empty();
+        let g2 = Grid::new(vec![json!({"id": "b"})]).unwrap();
+        let g3 = Grid::new(vec![json!({"id": "c"})]).unwrap();
+        let g4 = Grid::empty();
+        let grids = vec![g1, g2, g3, g4];
+
+        let final_grid = Grid::concat_all(grids);
+        assert_eq!(final_grid.size(), 2);
+
+        let ids = final_grid
+            .col_to_vec("id")
+            .into_iter()
+            .map(|v| v.unwrap().as_str().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(ids, vec!["b", "c"]);
     }
 }
