@@ -115,7 +115,7 @@ impl Grid {
     where
         F: Fn(&mut Map<String, Value>) -> Value,
     {
-        let col_name = col_name.to_string();
+        let col_name_string = col_name.to_string();
 
         for row in self.json["rows"]
             .as_array_mut()
@@ -123,17 +123,28 @@ impl Grid {
         {
             let row = row.as_object_mut().expect("Each row is a JSON object");
             let value = f(row);
-            row.insert(col_name.clone(), value);
+            row.insert(col_name_string.clone(), value);
         }
 
-        let mut new_col_names: HashSet<&str> =
+        self.add_col_names(std::slice::from_ref(&col_name));
+    }
+
+    /// Add column names to the grid.
+    fn add_col_names(&mut self, col_names: &[TagName]) {
+        let mut all_names: HashSet<&str> =
             HashSet::from_iter(self.col_name_strs());
-        new_col_names.insert(&col_name);
-        let mut new_col_names = new_col_names.into_iter().collect::<Vec<_>>();
-        new_col_names.sort();
-        let new_col_objects =
-            new_col_names.iter().map(|c| json!({ "name": c })).collect();
-        self.json["cols"] = Value::Array(new_col_objects);
+
+        for col_name in col_names {
+            all_names.insert(col_name.as_ref());
+        }
+
+        let mut all_names = all_names.into_iter().collect::<Vec<_>>();
+        all_names.sort();
+
+        let all_objects =
+            all_names.iter().map(|c| json!({ "name": c })).collect();
+
+        self.json["cols"] = Value::Array(all_objects);
     }
 
     /// Return a vector of owned JSON values which
@@ -194,6 +205,47 @@ impl Grid {
             .as_array_mut()
             .expect("rows is a JSON Array");
         rows.sort_by(compare);
+    }
+
+    /// Add a row to the grid. The row must be a JSON object.
+    pub fn add_row(&mut self, row: Value) -> Result<(), ParseJsonGridError> {
+        self.add_rows(vec![row])
+    }
+
+    /// Add rows to the grid. The rows to add must be a `Vec` containing
+    /// only JSON objects.
+    pub fn add_rows(&mut self, mut rows: Vec<Value>) -> Result<(), ParseJsonGridError> {
+        // Validate the rows being added:
+        if rows.iter().any(|row| !row.is_object()) {
+            let msg = format!("At least one row being added is not a JSON object");
+            return Err(ParseJsonGridError::new(msg))
+        }
+
+        let mut new_keys: HashSet<TagName> = HashSet::new();
+
+        // Validate the column names being added:
+        for row in &rows {
+            let row_obj = row.as_object().expect("row is an object");
+            for key in row_obj.keys() {
+                match TagName::new(key.to_string()) {
+                    Some(tag_name) => {
+                        new_keys.insert(tag_name);
+                    },
+                    None => {
+                        let msg = format!("The column name {} is not a valid tag name", key);
+                        return Err(ParseJsonGridError::new(msg));
+                    }
+                }
+            }
+        }
+
+        let new_keys = new_keys.into_iter().collect::<Vec<_>>();
+        self.add_col_names(&new_keys);
+
+        let current_rows = self.json["rows"].as_array_mut().expect("rows is a JSON Array");
+        current_rows.append(&mut rows);
+
+        Ok(())
     }
 
     /// Return the number of rows in the grid.
@@ -474,5 +526,80 @@ mod test {
         let rows = vec![json!({"id": "1"}), json!({"id": "2"})];
         let grid = Grid::new(rows).unwrap();
         assert_eq!(grid.size(), 2);
+    }
+
+    #[test]
+    fn add_rows() {
+        let rows = vec![
+            json!({"id": "a"}),
+        ];
+        let mut grid = Grid::new(rows).unwrap();
+
+        let rows_to_add = vec![
+            json!({"id": "b"}),
+            json!({"id": "c", "tag2": "test"}),
+            json!({"tag2": "anothertest"}),
+        ];
+
+        grid.add_rows(rows_to_add).unwrap();
+
+        let final_rows = grid.rows();
+
+        assert_eq!(final_rows[0]["id"].as_str().unwrap(), "a");
+        assert!(final_rows[0].get("tag2").is_none());
+
+        assert_eq!(final_rows[1]["id"].as_str().unwrap(), "b");
+        assert!(final_rows[1].get("tag2").is_none());
+
+        assert_eq!(final_rows[2]["id"].as_str().unwrap(), "c");
+        assert_eq!(final_rows[2]["tag2"].as_str().unwrap(), "test");
+
+        assert!(final_rows[3].get("id").is_none());
+        assert_eq!(final_rows[3]["tag2"].as_str().unwrap(), "anothertest");
+
+        assert_eq!(grid.col_name_strs(), vec!["id", "tag2"]);
+    }
+
+    #[test]
+    fn add_no_rows() {
+        let rows = vec![
+            json!({"id": "a"}),
+        ];
+        let mut grid = Grid::new(rows).unwrap();
+        assert_eq!(grid.size(), 1);
+        grid.add_rows(vec![]).unwrap();
+        assert_eq!(grid.size(), 1);
+    }
+
+    #[test]
+    fn add_rows_without_json_object() {
+        let rows = vec![
+            json!({"id": "a"}),
+        ];
+        let mut grid = Grid::new(rows).unwrap();
+
+        let rows_to_add = vec![
+            json!({"id": "b"}),
+            json!("this row should be an object but it isn't"),
+            json!({"tag2": "anothertest"}),
+        ];
+
+        assert!(grid.add_rows(rows_to_add).is_err());
+    }
+
+    #[test]
+    fn add_rows_with_invalid_tag_name() {
+        let rows = vec![
+            json!({"id": "a"}),
+        ];
+        let mut grid = Grid::new(rows).unwrap();
+
+        let rows_to_add = vec![
+            json!({"id": "b"}),
+            json!({"THIS_IS_AN_INVALID_TAG_NAME|{}/=?+[] .": "test"}),
+            json!({"tag2": "anothertest"}),
+        ];
+
+        assert!(grid.add_rows(rows_to_add).is_err());
     }
 }
