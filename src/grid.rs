@@ -178,6 +178,11 @@ impl Grid {
         self.rows().iter().map(|row| row.get(col_name)).collect()
     }
 
+    /// Returns true if the grid contains the given column name.
+    pub fn has_col_name(&self, name: &str) -> bool {
+        self.col_name_strs().contains(&name)
+    }
+
     /// Return a vector of JSON values which represent the rows of the grid.
     pub fn rows(&self) -> &Vec<Value> {
         &self.json["rows"].as_array().expect("rows is a JSON Array")
@@ -596,5 +601,13 @@ mod test {
         ];
 
         assert!(grid.add_rows(rows_to_add).is_err());
+    }
+
+    #[test]
+    fn has_col_name() {
+        let rows = vec![json!({"id": "a"})];
+        let grid = Grid::new(rows).unwrap();
+        assert!(grid.has_col_name("id"));
+        assert!(!grid.has_col_name("doesn't exist"));
     }
 }
