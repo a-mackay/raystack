@@ -149,6 +149,28 @@ impl Grid {
         self.json["cols"] = Value::Array(all_objects);
     }
 
+    /// Remove column names from the grid and return the number of columns
+    /// removed. If a column was not in the grid, it does not increase
+    /// the number of removed columns.
+    fn remove_col_names(&mut self, col_names: &[&str]) -> u32 {
+        let mut all_names: HashSet<&str> = HashSet::from_iter(self.col_name_strs());
+        let mut removed_col_count = 0u32;
+
+        for col_name in col_names {
+            if all_names.remove(col_name) {
+                removed_col_count += 1;
+            }
+        }
+
+        let mut all_names = all_names.into_iter().collect::<Vec<_>>();
+        all_names.sort();
+
+        let all_objects = all_names.iter().map(|c| json!({ "name": c })).collect();
+        self.json["cols"] = Value::Array(all_objects);
+
+        removed_col_count
+    }
+
     /// Return a vector of owned JSON values which
     /// represent the columns of the grid.
     pub fn to_cols(&self) -> Vec<Value> {
@@ -186,6 +208,39 @@ impl Grid {
     /// Returns true if the grid contains the given column name.
     pub fn has_col_name(&self, name: &str) -> bool {
         self.col_name_strs().contains(&name)
+    }
+
+    /// Remove the column names from the grid and return the number of
+    /// columns that were removed. If a column name is not
+    /// in the grid, nothing happens for that column name, and it does not
+    /// increase the count of removed columns.
+    pub fn remove_cols(&mut self, col_names: &[&str]) -> u32 {
+        self.json["rows"]
+            .as_array_mut()
+            .expect("rows is a JSON Array")
+            .iter_mut()
+            .for_each(|row| {
+                let row = row.as_object_mut().expect("row is a JSON Object");
+                for &col_name in col_names {
+                    row.remove(col_name);
+                }
+            });
+
+        self.remove_col_names(col_names)
+    }
+
+    /// Keep the given column names and remove all other columns. If the column
+    /// name is not present, nothing happens for that column name.
+    pub fn keep_cols(&mut self, cols_to_keep: &[&str]) {
+        let cols_to_remove = self
+            .col_name_strs()
+            .into_iter()
+            .filter(|col_name| !cols_to_keep.contains(col_name))
+            .map(|col_name| col_name.to_owned())
+            .collect::<Vec<_>>();
+        let cols_to_remove: Vec<&str> =
+            cols_to_remove.iter().map(AsRef::as_ref).collect();
+        self.remove_cols(&cols_to_remove);
     }
 
     /// Return a vector of JSON values which represent the rows of the grid.
@@ -692,5 +747,90 @@ mod test {
             .map(|v| v.unwrap().as_str().unwrap())
             .collect::<Vec<_>>();
         assert_eq!(ids, vec!["b", "c"]);
+    }
+
+    #[test]
+    fn remove_cols() {
+        let rows = vec![
+            json!({"id": "a", "one": 1, "two": 2}),
+            json!({"one": 1}),
+            json!({"id": "b", "two": 2}),
+            json!({"one": 1, "two": 2}),
+            json!({"untouchedColumn": "test"}),
+        ];
+        let mut grid = Grid::new(rows).unwrap();
+        let removed_col_count = grid.remove_cols(&["one", "two", "randomCol"]);
+
+        assert_eq!(removed_col_count, 2);
+
+        assert!(grid
+            .rows()
+            .iter()
+            .all(|row| !row.as_object().unwrap().contains_key("one")));
+        assert!(grid
+            .rows()
+            .iter()
+            .all(|row| !row.as_object().unwrap().contains_key("two")));
+        assert!(grid
+            .rows()
+            .iter()
+            .all(|row| !row.as_object().unwrap().contains_key("randomCol")));
+
+        assert_eq!(grid.rows()[0]["id"].as_str().unwrap(), "a");
+        assert_eq!(grid.rows()[2]["id"].as_str().unwrap(), "b");
+        assert_eq!(grid.rows()[4]["untouchedColumn"].as_str().unwrap(), "test");
+
+        assert_eq!(grid.col_name_strs(), vec!["id", "untouchedColumn"]);
+    }
+
+    #[test]
+    fn remove_cols_from_empty_grid() {
+        let mut grid = Grid::new(vec![]).unwrap();
+        assert!(grid.is_empty());
+        let removed_col_count = grid.remove_cols(&["one", "two", "randomCol"]);
+        assert_eq!(removed_col_count, 0);
+        assert!(grid.is_empty());
+
+        let expected_col_names: Vec<&str> = vec![];
+        assert_eq!(grid.col_name_strs(), expected_col_names);
+    }
+
+    #[test]
+    fn keep_cols() {
+        let rows = vec![
+            json!({"id": "a", "one": 1, "two": 2}),
+            json!({"one": 1}),
+            json!({"id": "b", "two": 2}),
+            json!({"one": 1, "two": 2}),
+            json!({"anotherColumn": "test"}),
+        ];
+        let mut grid = Grid::new(rows).unwrap();
+        grid.keep_cols(&["id", "anotherColumn", "x"]);
+
+        assert!(grid
+            .rows()
+            .iter()
+            .all(|row| !row.as_object().unwrap().contains_key("one")));
+        assert!(grid
+            .rows()
+            .iter()
+            .all(|row| !row.as_object().unwrap().contains_key("two")));
+
+        assert_eq!(grid.rows()[0]["id"].as_str().unwrap(), "a");
+        assert_eq!(grid.rows()[2]["id"].as_str().unwrap(), "b");
+        assert_eq!(grid.rows()[4]["anotherColumn"].as_str().unwrap(), "test");
+
+        assert_eq!(grid.col_name_strs(), vec!["anotherColumn", "id"]);
+    }
+
+    #[test]
+    fn keep_cols_from_empty_grid() {
+        let mut grid = Grid::new(vec![]).unwrap();
+        assert!(grid.is_empty());
+        grid.keep_cols(&["one", "two", "randomCol"]);
+        assert!(grid.is_empty());
+
+        let expected_col_names: Vec<&str> = vec![];
+        assert_eq!(grid.col_name_strs(), expected_col_names);
     }
 }
