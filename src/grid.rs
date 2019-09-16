@@ -210,21 +210,27 @@ impl Grid {
         self.col_name_strs().contains(&name)
     }
 
+    /// Remove the column name from the grid if it is present, and return
+    /// true if the column was removed.
+    pub fn remove_col(&mut self, col_name: &str) -> bool {
+        if self.has_col_name(col_name) {
+            self.remove_cols(std::slice::from_ref(&col_name));
+            true
+        } else {
+            false
+        }
+    }
+
     /// Remove the column names from the grid and return the number of
     /// columns that were removed. If a column name is not
     /// in the grid, nothing happens for that column name, and it does not
     /// increase the count of removed columns.
     pub fn remove_cols(&mut self, col_names: &[&str]) -> u32 {
-        self.json["rows"]
-            .as_array_mut()
-            .expect("rows is a JSON Array")
-            .iter_mut()
-            .for_each(|row| {
-                let row = row.as_object_mut().expect("row is a JSON Object");
-                for &col_name in col_names {
-                    row.remove(col_name);
-                }
-            });
+        self.rows_mut().into_iter().for_each(|row| {
+            for &col_name in col_names {
+                row.remove(col_name);
+            }
+        });
 
         self.remove_col_names(col_names)
     }
@@ -243,9 +249,47 @@ impl Grid {
         self.remove_cols(&cols_to_remove);
     }
 
+    /// Rename a column in the grid.
+    pub fn rename_col(
+        &mut self,
+        col_name: &TagName,
+        new_col_name: &TagName,
+    ) -> Result<(), RenameColError> {
+        let new_col_tag_name = new_col_name.clone();
+        let col_name: &str = col_name.as_ref();
+        let new_col_name: &str = new_col_name.as_ref();
+
+        let has_col = self.has_col_name(col_name);
+        let has_new_col = self.has_col_name(new_col_name);
+        match (has_col, has_new_col) {
+            (true, false) => {
+                for row in self.rows_mut() {
+                    if let Some(value) = row.remove(col_name) {
+                        row.insert(new_col_name.to_owned(), value);
+                    }
+                }
+                self.add_col_names(std::slice::from_ref(&new_col_tag_name));
+                self.remove_col(col_name);
+                Ok(())
+            }
+            (false, _) => Err(RenameColError::MissingCol),
+            (_, true) => Err(RenameColError::NewColAlreadyExists),
+        }
+    }
+
     /// Return a vector of JSON values which represent the rows of the grid.
     pub fn rows(&self) -> &Vec<Value> {
         &self.json["rows"].as_array().expect("rows is a JSON Array")
+    }
+
+    /// Return a vector of mut JSON values which represent the rows of the grid.
+    fn rows_mut(&mut self) -> Vec<&mut Map<String, Value>> {
+        self.json["rows"]
+            .as_array_mut()
+            .expect("rows is a JSON Array")
+            .iter_mut()
+            .map(|row| row.as_object_mut().expect("row is a JSON Object"))
+            .collect()
     }
 
     /// Return a vector of owned JSON values which
@@ -485,6 +529,29 @@ impl std::error::Error for ParseJsonGridError {}
 impl std::fmt::Display for ParseJsonGridError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.msg)
+    }
+}
+
+/// Error denoting that a `Grid` column could not be renamed.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RenameColError {
+    /// The column being renamed did not exist in the grid.
+    MissingCol,
+    /// The new column name already exists in the grid.
+    NewColAlreadyExists,
+}
+
+impl std::error::Error for RenameColError {}
+
+impl std::fmt::Display for RenameColError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let msg = match self {
+            Self::MissingCol => "The column being renamed does not exist",
+            Self::NewColAlreadyExists => {
+                "The new column name already exists"
+            }
+        };
+        write!(f, "{}", msg)
     }
 }
 
@@ -832,5 +899,60 @@ mod test {
 
         let expected_col_names: Vec<&str> = vec![];
         assert_eq!(grid.col_name_strs(), expected_col_names);
+    }
+
+    #[test]
+    fn rename_col() {
+        let rows = vec![
+            json!({"id": "a", "one": 1}),
+            json!({"id": "b", "two": 2}),
+        ];
+        let mut grid = Grid::new(rows).unwrap();
+
+        let col_name = TagName::new("id".to_owned()).unwrap();
+        let new_col_name = TagName::new("test".to_owned()).unwrap();
+        grid.rename_col(&col_name, &new_col_name).unwrap();
+
+        assert!(grid
+            .rows()
+            .iter()
+            .all(|row| !row.as_object().unwrap().contains_key("id")));
+
+        assert_eq!(grid.rows()[0]["test"].as_str().unwrap(), "a");
+        assert_eq!(grid.rows()[0]["one"].as_i64().unwrap(), 1);
+        assert_eq!(grid.rows()[1]["test"].as_str().unwrap(), "b");
+        assert_eq!(grid.rows()[1]["two"].as_i64().unwrap(), 2);
+
+        assert_eq!(grid.col_name_strs(), vec!["one", "test", "two"]);
+    }
+
+    #[test]
+    fn rename_col_is_err_if_col_missing() {
+        use super::RenameColError;
+
+        let rows = vec![
+            json!({"id": "a", "one": 1}),
+            json!({"id": "b", "two": 2}),
+        ];
+        let mut grid = Grid::new(rows).unwrap();
+
+        let col_name = TagName::new("missing".to_owned()).unwrap();
+        let new_col_name = TagName::new("test".to_owned()).unwrap();
+        assert_eq!(grid.rename_col(&col_name, &new_col_name).err().unwrap(), RenameColError::MissingCol);
+    }
+
+    #[test]
+    fn rename_col_is_err_if_col_exists() {
+        use super::RenameColError;
+
+        let rows = vec![
+            json!({"id": "a", "one": 1}),
+            json!({"id": "b", "two": 2}),
+        ];
+        let mut grid = Grid::new(rows).unwrap();
+
+        let col_name = TagName::new("id".to_owned()).unwrap();
+        let new_col_name = TagName::new("one".to_owned()).unwrap();
+        assert_eq!(grid.rename_col(&col_name, &new_col_name).err().unwrap(), RenameColError::NewColAlreadyExists);
     }
 }
