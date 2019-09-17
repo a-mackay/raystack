@@ -61,7 +61,7 @@ use chrono_tz::Tz;
 pub use coord::Coord;
 use err::Result;
 pub use err::{Error, ErrorKind};
-pub use grid::{Grid, ParseJsonGridError, RenameColError};
+pub use grid::{Grid, ParseJsonGridError};
 pub use hsref::{ParseRefError, Ref};
 pub use number::{Number, ParseNumberError};
 use reqwest::Client as ReqwestClient;

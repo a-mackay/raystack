@@ -255,31 +255,30 @@ impl Grid {
         self.remove_cols(&cols_to_remove);
     }
 
-    /// Rename a column in the grid.
+    /// Rename a column in the grid. If the original column was contained
+    /// in the grid, return true. If the original column did not exist
+    /// in the grid, this function does not modify the grid, and returns
+    /// false.
     pub fn rename_col(
         &mut self,
         col_name: &TagName,
         new_col_name: &TagName,
-    ) -> Result<(), RenameColError> {
+    ) -> bool {
         let new_col_tag_name = new_col_name.clone();
         let col_name: &str = col_name.as_ref();
         let new_col_name: &str = new_col_name.as_ref();
 
-        let has_col = self.has_col_name(col_name);
-        let has_new_col = self.has_col_name(new_col_name);
-        match (has_col, has_new_col) {
-            (true, false) => {
-                for row in self.row_maps_mut() {
-                    if let Some(value) = row.remove(col_name) {
-                        row.insert(new_col_name.to_owned(), value);
-                    }
+        if self.has_col_name(col_name) {
+            for row in self.row_maps_mut() {
+                if let Some(value) = row.remove(col_name) {
+                    row.insert(new_col_name.to_owned(), value);
                 }
-                self.add_col_names(std::slice::from_ref(&new_col_tag_name));
-                self.remove_col(col_name);
-                Ok(())
             }
-            (false, _) => Err(RenameColError::MissingCol),
-            (_, true) => Err(RenameColError::NewColAlreadyExists),
+            self.add_col_names(std::slice::from_ref(&new_col_tag_name));
+            self.remove_col(col_name);
+            true
+        } else {
+            false
         }
     }
 
@@ -604,27 +603,6 @@ impl std::error::Error for ParseJsonGridError {}
 impl std::fmt::Display for ParseJsonGridError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.msg)
-    }
-}
-
-/// Error denoting that a `Grid` column could not be renamed.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum RenameColError {
-    /// The column being renamed did not exist in the grid.
-    MissingCol,
-    /// The new column name already exists in the grid.
-    NewColAlreadyExists,
-}
-
-impl std::error::Error for RenameColError {}
-
-impl std::fmt::Display for RenameColError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msg = match self {
-            Self::MissingCol => "The column being renamed does not exist",
-            Self::NewColAlreadyExists => "The new column name already exists",
-        };
-        write!(f, "{}", msg)
     }
 }
 
@@ -982,7 +960,9 @@ mod test {
 
         let col_name = TagName::new("id".to_owned()).unwrap();
         let new_col_name = TagName::new("test".to_owned()).unwrap();
-        grid.rename_col(&col_name, &new_col_name).unwrap();
+        let did_rename = grid.rename_col(&col_name, &new_col_name);
+
+        assert!(did_rename);
 
         assert!(grid
             .rows()
@@ -998,34 +978,38 @@ mod test {
     }
 
     #[test]
-    fn rename_col_is_err_if_col_missing() {
-        use super::RenameColError;
-
+    fn rename_col_if_col_missing() {
         let rows =
             vec![json!({"id": "a", "one": 1}), json!({"id": "b", "two": 2})];
         let mut grid = Grid::new(rows).unwrap();
 
         let col_name = TagName::new("missing".to_owned()).unwrap();
         let new_col_name = TagName::new("test".to_owned()).unwrap();
-        assert_eq!(
-            grid.rename_col(&col_name, &new_col_name).err().unwrap(),
-            RenameColError::MissingCol
-        );
+        let did_rename = grid.rename_col(&col_name, &new_col_name);
+
+        assert_eq!(did_rename, false);
+        // Check the grid is unmodified:
+        assert_eq!(grid.col_name_strs(), vec!["id", "one", "two"]);
+        assert_eq!(grid.rows()[0]["id"].as_str().unwrap(), "a");
+        assert_eq!(grid.rows()[0]["one"].as_i64().unwrap(), 1);
+        assert_eq!(grid.rows()[1]["id"].as_str().unwrap(), "b");
+        assert_eq!(grid.rows()[1]["two"].as_i64().unwrap(), 2);
     }
 
     #[test]
-    fn rename_col_is_err_if_col_exists() {
-        use super::RenameColError;
-
+    fn rename_col_overwriting_existing_col() {
         let rows =
             vec![json!({"id": "a", "one": 1}), json!({"id": "b", "two": 2})];
         let mut grid = Grid::new(rows).unwrap();
 
         let col_name = TagName::new("id".to_owned()).unwrap();
         let new_col_name = TagName::new("one".to_owned()).unwrap();
-        assert_eq!(
-            grid.rename_col(&col_name, &new_col_name).err().unwrap(),
-            RenameColError::NewColAlreadyExists
-        );
+        let did_rename = grid.rename_col(&col_name, &new_col_name);
+
+        assert!(did_rename);
+        assert_eq!(grid.col_name_strs(), vec!["one", "two"]);
+        assert_eq!(grid.rows()[0]["one"].as_str().unwrap(), "a");
+        assert_eq!(grid.rows()[1]["one"].as_str().unwrap(), "b");
+        assert_eq!(grid.rows()[1]["two"].as_i64().unwrap(), 2);
     }
 }
