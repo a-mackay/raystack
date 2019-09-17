@@ -232,7 +232,7 @@ impl Grid {
     /// in the grid, nothing happens for that column name, and it does not
     /// increase the count of removed columns.
     pub fn remove_cols(&mut self, col_names: &[&str]) -> u32 {
-        self.rows_mut().into_iter().for_each(|row| {
+        self.row_maps_mut().into_iter().for_each(|row| {
             for &col_name in col_names {
                 row.remove(col_name);
             }
@@ -269,7 +269,7 @@ impl Grid {
         let has_new_col = self.has_col_name(new_col_name);
         match (has_col, has_new_col) {
             (true, false) => {
-                for row in self.rows_mut() {
+                for row in self.row_maps_mut() {
                     if let Some(value) = row.remove(col_name) {
                         row.insert(new_col_name.to_owned(), value);
                     }
@@ -288,8 +288,18 @@ impl Grid {
         &self.json["rows"].as_array().expect("rows is a JSON Array")
     }
 
-    /// Return a vector of mut JSON values which represent the rows of the grid.
-    fn rows_mut(&mut self) -> Vec<&mut Map<String, Value>> {
+    /// Return a vector of `Map`s which represent the rows of the grid.
+    pub fn row_maps(&self) -> Vec<&Map<String, Value>> {
+        self.json["rows"]
+            .as_array()
+            .expect("rows is a JSON Array")
+            .iter()
+            .map(|row| row.as_object().expect("row is a JSON Object"))
+            .collect()
+    }
+
+    /// Return a vector of mut `Map`s which represent the rows of the grid.
+    fn row_maps_mut(&mut self) -> Vec<&mut Map<String, Value>> {
         self.json["rows"]
             .as_array_mut()
             .expect("rows is a JSON Array")
@@ -305,6 +315,15 @@ impl Grid {
             .as_array()
             .expect("rows is a JSON Array")
             .to_vec()
+    }
+
+    /// Return a vector of owned JSON values which
+    /// represent the rows of the grid.
+    pub fn to_row_maps(&self) -> Vec<Map<String, Value>> {
+        self.row_maps()
+            .iter()
+            .map(|&row_map| row_map.clone())
+            .collect()
     }
 
     /// Sort the rows with a comparator function. This sort is stable.
@@ -440,28 +459,31 @@ impl Grid {
     /// The CSV string will have a header containing only the given column
     /// names, in the same order as they were provided. The header will
     /// include any given column names which are not present in the grid itself.
-    /// 
+    ///
     /// Nested structures such as Dicts (JSON objects) or Lists (JSON arrays)
     /// will not be expanded, and will be displayed as `<StructureType>`.
-    /// 
+    ///
     /// Example:
-    /// 
+    ///
     /// ```rust
     /// use raystack::Grid;
     /// use serde_json::json;
-    /// 
+    ///
     /// let grid = Grid::new(vec![json!({"id": 1, "x": 2, "y": 3})]).unwrap();
     /// let ordered_cols = vec!["y", "x", "colWithNoValues"];
     /// let csv_string = grid
     ///     .to_csv_string_with_ordered_cols(&ordered_cols)
     ///     .unwrap();
-    /// 
+    ///
     /// assert_eq!(
     ///     csv_string,
     ///     "y,x,colWithNoValues\n3,2,\n".to_string()
     /// );
     /// ```
-    pub fn to_csv_string_with_ordered_cols(&self, col_names: &[&str]) -> Result<String, crate::Error> {
+    pub fn to_csv_string_with_ordered_cols(
+        &self,
+        col_names: &[&str],
+    ) -> Result<String, crate::Error> {
         let mut writer = csv::Writer::from_writer(vec![]);
         writer.write_record(col_names)?;
 
@@ -494,21 +516,21 @@ impl Grid {
     }
 
     /// Return a string containing a CSV representation of the grid.
-    /// 
+    ///
     /// Nested structures such as Dicts (JSON objects) or Lists (JSON arrays)
     /// will not be expanded, and will be displayed as `<StructureType>`.
-    /// 
+    ///
     /// Example:
-    /// 
+    ///
     /// ```rust
     /// use raystack::Grid;
     /// use serde_json::json;
-    /// 
+    ///
     /// let grid = Grid::new(vec![json!({"id": 1, "x": 2, "y": 3})]).unwrap();
     /// let csv_string = grid
     ///     .to_csv_string()
     ///     .unwrap();
-    /// 
+    ///
     /// assert_eq!(
     ///     csv_string,
     ///     "id,x,y\n1,2,3\n".to_string()
