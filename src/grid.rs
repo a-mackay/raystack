@@ -437,17 +437,37 @@ impl Grid {
     }
 
     /// Return a string containing a CSV representation of the grid.
+    /// The CSV string will have a header containing only the given column
+    /// names, in the same order as they were provided. The header will
+    /// include any given column names which are not present in the grid itself.
+    /// 
     /// Nested structures such as Dicts (JSON objects) or Lists (JSON arrays)
     /// will not be expanded, and will be displayed as `<StructureType>`.
-    pub fn to_csv_string(&self) -> Result<String, crate::Error> {
+    /// 
+    /// Example:
+    /// 
+    /// ```rust
+    /// use raystack::Grid;
+    /// use serde_json::json;
+    /// 
+    /// let grid = Grid::new(vec![json!({"id": 1, "x": 2, "y": 3})]).unwrap();
+    /// let ordered_cols = vec!["y", "x", "colWithNoValues"];
+    /// let csv_string = grid
+    ///     .to_csv_string_with_ordered_cols(&ordered_cols)
+    ///     .unwrap();
+    /// 
+    /// assert_eq!(
+    ///     csv_string,
+    ///     "y,x,colWithNoValues\n3,2,\n".to_string()
+    /// );
+    /// ```
+    pub fn to_csv_string_with_ordered_cols(&self, col_names: &[&str]) -> Result<String, crate::Error> {
         let mut writer = csv::Writer::from_writer(vec![]);
-
-        let col_names = self.col_name_strs();
-        writer.write_record(&col_names)?;
+        writer.write_record(col_names)?;
 
         for row in self.rows() {
             let mut row_values = Vec::new();
-            for &col_name in &col_names {
+            for &col_name in col_names {
                 let value_string = match &row[col_name] {
                     Value::Array(_) => "<Array>".to_owned(),
                     Value::Bool(true) => "T".to_owned(),
@@ -471,6 +491,31 @@ impl Grid {
                 Err(crate::Error::new_io(msg))
             }
         }
+    }
+
+    /// Return a string containing a CSV representation of the grid.
+    /// 
+    /// Nested structures such as Dicts (JSON objects) or Lists (JSON arrays)
+    /// will not be expanded, and will be displayed as `<StructureType>`.
+    /// 
+    /// Example:
+    /// 
+    /// ```rust
+    /// use raystack::Grid;
+    /// use serde_json::json;
+    /// 
+    /// let grid = Grid::new(vec![json!({"id": 1, "x": 2, "y": 3})]).unwrap();
+    /// let csv_string = grid
+    ///     .to_csv_string()
+    ///     .unwrap();
+    /// 
+    /// assert_eq!(
+    ///     csv_string,
+    ///     "id,x,y\n1,2,3\n".to_string()
+    /// );
+    /// ```
+    pub fn to_csv_string(&self) -> Result<String, crate::Error> {
+        self.to_csv_string_with_ordered_cols(&self.col_name_strs())
     }
 }
 
