@@ -110,8 +110,12 @@ pub(crate) fn new_auth_token(
     let nonce = format!("{:x}", random::<i128>());
     let client_first_msg = format!("n={},r={}", username, nonce);
 
-    let server_first_res =
-        server_first_response(client, &url, &handshake_token, &client_first_msg);
+    let server_first_res = server_first_response(
+        client,
+        &url,
+        &handshake_token,
+        &client_first_msg,
+    );
 
     let ServerFirstResponse {
         server_first_msg,
@@ -147,7 +151,8 @@ pub(crate) fn new_auth_token(
         server_signature,
     } = server_second_res?;
 
-    if is_server_valid(&auth_msg, &salted_password, &server_signature, &hash_fn) {
+    if is_server_valid(&auth_msg, &salted_password, &server_signature, &hash_fn)
+    {
         Ok(auth_token)
     } else {
         Err(AuthError {
@@ -264,7 +269,8 @@ fn server_second_response(
         .header("Authorization", auth_header_value)
         .send()?;
 
-    let auth_info = parse_key_value_pairs_from_header("authentication-info", res)?;
+    let auth_info =
+        parse_key_value_pairs_from_header("authentication-info", res)?;
     let auth_token = auth_info.get("authToken")?;
     let data_base64 = auth_info.get("data")?;
     let data = base64_decode_no_padding(&data_base64)?;
@@ -317,7 +323,8 @@ fn parse_key_value_pairs(s: &str) -> Result<KeyValuePairs> {
                 let value = split.1.trim_start_matches('=').to_string();
                 Ok((key, value))
             } else {
-                let description = format!("No '=' symbol in key-value pair {}", s);
+                let description =
+                    format!("No '=' symbol in key-value pair {}", s);
                 Err(AuthError {
                     kind: AuthErrorKind::ParseError { description },
                 })
@@ -389,7 +396,9 @@ pub(crate) enum AuthErrorKind {
 impl fmt::Display for AuthError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg = match self.kind() {
-            AuthErrorKind::Base64DecodeError => "Could not decode base64".to_owned(),
+            AuthErrorKind::Base64DecodeError => {
+                "Could not decode base64".to_owned()
+            }
             AuthErrorKind::HeaderToStrError => {
                 "Could not convert header to a string".to_owned()
             }
@@ -406,7 +415,9 @@ impl fmt::Display for AuthError {
             AuthErrorKind::ServerValidationError => {
                 "Could not validate the identity of the server".to_owned()
             }
-            AuthErrorKind::Utf8DecodeError(_) => "Could not decode UTF8".to_owned(),
+            AuthErrorKind::Utf8DecodeError(_) => {
+                "Could not decode UTF8".to_owned()
+            }
         };
         write!(f, "Authorization error: {}", msg)
     }

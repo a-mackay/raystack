@@ -105,8 +105,12 @@ impl SkySparkClient {
         let mut auth_url = project_api_url.clone();
         auth_url.set_path("/ui");
 
-        let auth_token =
-            auth::new_auth_token(&client, auth_url.as_str(), username, password)?;
+        let auth_token = auth::new_auth_token(
+            &client,
+            auth_url.as_str(),
+            username,
+            password,
+        )?;
 
         Ok(SkySparkClient {
             auth_token,
@@ -450,9 +454,10 @@ mod test {
         use chrono::DateTime;
         use chrono_tz::Australia::Sydney;
 
-        let date_time = DateTime::parse_from_rfc3339("2012-10-01T00:00:00+10:00")
-            .unwrap()
-            .with_timezone(&Sydney);
+        let date_time =
+            DateTime::parse_from_rfc3339("2012-10-01T00:00:00+10:00")
+                .unwrap()
+                .with_timezone(&Sydney);
         his_read(&HisReadRange::SinceDateTime { date_time });
     }
 
@@ -489,14 +494,16 @@ mod test {
         use chrono::{DateTime, Duration};
         use chrono_tz::Australia::Sydney;
 
-        let date_time1 = DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
-            .unwrap()
-            .with_timezone(&Sydney);
+        let date_time1 =
+            DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
+                .unwrap()
+                .with_timezone(&Sydney);
         let date_time2 = date_time1 + Duration::minutes(5);
         let date_time3 = date_time1 + Duration::minutes(10);
 
         let client = new_client();
-        let id = Ref::new("@p:the_project:r:24efe1c4-24aef280".to_owned()).unwrap();
+        let id =
+            Ref::new("@p:the_project:r:24efe1c4-24aef280".to_owned()).unwrap();
         let his_data =
             vec![(date_time1, true), (date_time2, false), (date_time3, true)];
 
@@ -511,14 +518,16 @@ mod test {
         use chrono::{DateTime, Duration};
         use chrono_tz::Australia::Sydney;
 
-        let date_time1 = DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
-            .unwrap()
-            .with_timezone(&Sydney);
+        let date_time1 =
+            DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
+                .unwrap()
+                .with_timezone(&Sydney);
         let date_time2 = date_time1 + Duration::minutes(5);
         let date_time3 = date_time1 + Duration::minutes(10);
 
         let client = new_client();
-        let id = Ref::new("@p:the_project:r:24efe317-acdc8f48".to_owned()).unwrap();
+        let id =
+            Ref::new("@p:the_project:r:24efe317-acdc8f48".to_owned()).unwrap();
         let his_data =
             vec![(date_time1, 10.0), (date_time2, 15.34), (date_time3, 1.234)];
 
@@ -533,14 +542,16 @@ mod test {
         use chrono::{DateTime, Duration};
         use chrono_tz::Australia::Sydney;
 
-        let date_time1 = DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
-            .unwrap()
-            .with_timezone(&Sydney);
+        let date_time1 =
+            DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
+                .unwrap()
+                .with_timezone(&Sydney);
         let date_time2 = date_time1 + Duration::minutes(5);
         let date_time3 = date_time1 + Duration::minutes(10);
 
         let client = new_client();
-        let id = Ref::new("@p:the_project:r:24efdc96-96baaf9d".to_owned()).unwrap();
+        let id =
+            Ref::new("@p:the_project:r:24efdc96-96baaf9d".to_owned()).unwrap();
         let his_data = vec![
             (date_time1, "hello".to_owned()),
             (date_time2, "world".to_owned()),

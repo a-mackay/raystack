@@ -74,7 +74,8 @@ impl Grid {
     }
 
     pub(crate) fn new_internal(rows: Vec<Value>) -> Self {
-        Self::new(rows).expect("creating grids within this crate should never fail")
+        Self::new(rows)
+            .expect("creating grids within this crate should never fail")
     }
 
     /// Create an empty grid.
@@ -135,7 +136,8 @@ impl Grid {
 
     /// Add column names to the grid.
     fn add_col_names(&mut self, col_names: &[TagName]) {
-        let mut all_names: HashSet<&str> = HashSet::from_iter(self.col_name_strs());
+        let mut all_names: HashSet<&str> =
+            HashSet::from_iter(self.col_name_strs());
 
         for col_name in col_names {
             all_names.insert(col_name.as_ref());
@@ -144,7 +146,8 @@ impl Grid {
         let mut all_names = all_names.into_iter().collect::<Vec<_>>();
         all_names.sort();
 
-        let all_objects = all_names.iter().map(|c| json!({ "name": c })).collect();
+        let all_objects =
+            all_names.iter().map(|c| json!({ "name": c })).collect();
 
         self.json["cols"] = Value::Array(all_objects);
     }
@@ -153,7 +156,8 @@ impl Grid {
     /// removed. If a column was not in the grid, it does not increase
     /// the number of removed columns.
     fn remove_col_names(&mut self, col_names: &[&str]) -> u32 {
-        let mut all_names: HashSet<&str> = HashSet::from_iter(self.col_name_strs());
+        let mut all_names: HashSet<&str> =
+            HashSet::from_iter(self.col_name_strs());
         let mut removed_col_count = 0u32;
 
         for col_name in col_names {
@@ -165,7 +169,8 @@ impl Grid {
         let mut all_names = all_names.into_iter().collect::<Vec<_>>();
         all_names.sort();
 
-        let all_objects = all_names.iter().map(|c| json!({ "name": c })).collect();
+        let all_objects =
+            all_names.iter().map(|c| json!({ "name": c })).collect();
         self.json["cols"] = Value::Array(all_objects);
 
         removed_col_count
@@ -185,7 +190,8 @@ impl Grid {
         self.cols()
             .iter()
             .map(|col| {
-                let name = col["name"].as_str().expect("col name is a JSON string");
+                let name =
+                    col["name"].as_str().expect("col name is a JSON string");
                 TagName::new(name.to_owned())
                     .expect("col names in grid are valid tag names")
             })
@@ -325,7 +331,8 @@ impl Grid {
     ) -> Result<(), ParseJsonGridError> {
         // Validate the rows being added:
         if rows.iter().any(|row| !row.is_object()) {
-            let msg = "At least one row being added is not a JSON object".to_owned();
+            let msg =
+                "At least one row being added is not a JSON object".to_owned();
             return Err(ParseJsonGridError::new(msg));
         }
 
@@ -401,7 +408,8 @@ impl Grid {
 
     /// Return the string representation of the underlying JSON value.
     pub fn to_string(&self) -> String {
-        to_string(&self.json).expect("serializing grid to String should never fail")
+        to_string(&self.json)
+            .expect("serializing grid to String should never fail")
     }
 
     /// Return a pretty formatted string representing the underlying JSON value.
@@ -547,9 +555,7 @@ impl std::fmt::Display for RenameColError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg = match self {
             Self::MissingCol => "The column being renamed does not exist",
-            Self::NewColAlreadyExists => {
-                "The new column name already exists"
-            }
+            Self::NewColAlreadyExists => "The new column name already exists",
         };
         write!(f, "{}", msg)
     }
@@ -903,10 +909,8 @@ mod test {
 
     #[test]
     fn rename_col() {
-        let rows = vec![
-            json!({"id": "a", "one": 1}),
-            json!({"id": "b", "two": 2}),
-        ];
+        let rows =
+            vec![json!({"id": "a", "one": 1}), json!({"id": "b", "two": 2})];
         let mut grid = Grid::new(rows).unwrap();
 
         let col_name = TagName::new("id".to_owned()).unwrap();
@@ -930,29 +934,31 @@ mod test {
     fn rename_col_is_err_if_col_missing() {
         use super::RenameColError;
 
-        let rows = vec![
-            json!({"id": "a", "one": 1}),
-            json!({"id": "b", "two": 2}),
-        ];
+        let rows =
+            vec![json!({"id": "a", "one": 1}), json!({"id": "b", "two": 2})];
         let mut grid = Grid::new(rows).unwrap();
 
         let col_name = TagName::new("missing".to_owned()).unwrap();
         let new_col_name = TagName::new("test".to_owned()).unwrap();
-        assert_eq!(grid.rename_col(&col_name, &new_col_name).err().unwrap(), RenameColError::MissingCol);
+        assert_eq!(
+            grid.rename_col(&col_name, &new_col_name).err().unwrap(),
+            RenameColError::MissingCol
+        );
     }
 
     #[test]
     fn rename_col_is_err_if_col_exists() {
         use super::RenameColError;
 
-        let rows = vec![
-            json!({"id": "a", "one": 1}),
-            json!({"id": "b", "two": 2}),
-        ];
+        let rows =
+            vec![json!({"id": "a", "one": 1}), json!({"id": "b", "two": 2})];
         let mut grid = Grid::new(rows).unwrap();
 
         let col_name = TagName::new("id".to_owned()).unwrap();
         let new_col_name = TagName::new("one".to_owned()).unwrap();
-        assert_eq!(grid.rename_col(&col_name, &new_col_name).err().unwrap(), RenameColError::NewColAlreadyExists);
+        assert_eq!(
+            grid.rename_col(&col_name, &new_col_name).err().unwrap(),
+            RenameColError::NewColAlreadyExists
+        );
     }
 }
