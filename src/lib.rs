@@ -11,7 +11,7 @@
 //!     [dependencies]
 //!     chrono = "0.4.7"
 //!     chrono-tz = "0.5.1"
-//!     raystack = "0.1.0"
+//!     raystack = "0.5"
 //!     serde_json = "1.0.40"
 //!     url = "1.7.2"
 //!     ```
