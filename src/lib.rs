@@ -139,13 +139,16 @@ impl SkySparkClient {
             .header("Authorization", self.auth_header_value())
     }
 
-    fn post(&self, url: Url, grid: &Grid) -> reqwest::RequestBuilder {
+    async fn post(&self, url: Url, grid: &Grid) -> Result<reqwest::Response> {
         self.client
             .post(url)
             .header("Accept", "application/json")
             .header("Authorization", self.auth_header_value())
             .header("Content-Type", "application/json")
             .body(grid.to_string())
+            .send()
+            .await
+            .map_err(|err| err.into())
     }
 
     async fn res_to_grid(mut res: reqwest::Response) -> Result<Grid> {
@@ -367,17 +370,8 @@ impl SkySparkClient {
     async fn eval(&self, axon_expr: &str) -> Result<Grid> {
         let row = json!({ "expr": axon_expr });
         let req_grid = Grid::new_internal(vec![row]);
-        let res = self.post(self.eval_url(), &req_grid).send().await;
-
-        match res {
-            Ok(res) => {
-                match Self::res_to_grid(res).await {
-                    Ok(grid) => Ok(grid),
-                    Err(err) => Err(err),
-                }
-            }
-            Err(err) => Err(err.into()),
-        }
+        let res = self.post(self.eval_url(), &req_grid).await?;
+        Self::res_to_grid(res).await
     }
 }
 
