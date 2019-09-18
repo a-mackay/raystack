@@ -208,15 +208,15 @@ fn add_backslash_if_necessary(url: Url) -> Url {
 }
 
 impl SkySparkClient {
-    async fn about(&self) -> Result<Grid> {
+    pub async fn about(&self) -> Result<Grid> {
         self.get(self.about_url()).await
     }
 
-    async fn formats(&self) -> Result<Grid> {
+    pub async fn formats(&self) -> Result<Grid> {
         self.get(self.formats_url()).await
     }
 
-    async fn his_read(&self, id: &Ref, range: &HisReadRange) -> Result<Grid> {
+    pub async fn his_read(&self, id: &Ref, range: &HisReadRange) -> Result<Grid> {
         let row = json!({
             "id": id.to_encoded_json_string(),
             "range": range.to_string()
@@ -226,7 +226,7 @@ impl SkySparkClient {
         self.post(self.his_read_url(), &req_grid).await
     }
 
-    async fn his_write_bool(
+    pub async fn his_write_bool(
         &self,
         id: &Ref,
         his_data: &[(DateTime<Tz>, bool)],
@@ -249,7 +249,7 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
-    async fn his_write_num(
+    pub async fn his_write_num(
         &self,
         id: &Ref,
         his_data: &[(DateTime<Tz>, f64)],
@@ -273,7 +273,7 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
-    async fn his_write_str(
+    pub async fn his_write_str(
         &self,
         id: &Ref,
         his_data: &[(DateTime<Tz>, String)],
@@ -296,7 +296,7 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
-    async fn nav(&self, nav_id: Option<&str>) -> Result<Grid> {
+    pub async fn nav(&self, nav_id: Option<&str>) -> Result<Grid> {
         let req_grid = match nav_id {
             Some(nav_id) => {
                 let row = json!({ "navId": nav_id });
@@ -312,7 +312,7 @@ impl SkySparkClient {
         self.get(self.ops_url()).await
     }
 
-    async fn read(&self, filter: &str, limit: Option<u64>) -> Result<Grid> {
+    pub async fn read(&self, filter: &str, limit: Option<u64>) -> Result<Grid> {
         let row = match limit {
             Some(integer) => json!({"filter": filter, "limit": integer}),
             None => json!({"filter": filter, "limit": "N"}),
@@ -322,7 +322,7 @@ impl SkySparkClient {
         self.post(self.read_url(), &req_grid).await
     }
 
-    async fn read_by_ids(&self, ids: &[Ref]) -> Result<Grid> {
+    pub async fn read_by_ids(&self, ids: &[Ref]) -> Result<Grid> {
         let rows = ids
             .iter()
             .map(|id| json!({"id": id.to_encoded_json_string()}))
@@ -364,7 +364,7 @@ impl HaystackUrl for SkySparkClient {
 }
 
 impl SkySparkClient {
-    async fn eval(&self, axon_expr: &str) -> Result<Grid> {
+    pub async fn eval(&self, axon_expr: &str) -> Result<Grid> {
         let row = json!({ "expr": axon_expr });
         let req_grid = Grid::new_internal(vec![row]);
         self.post(self.eval_url(), &req_grid).await
