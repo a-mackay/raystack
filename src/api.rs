@@ -6,7 +6,7 @@ use chrono_tz::Tz;
 use url::Url;
 
 /// Provides functions which correspond to some Haystack REST API operations.
-pub trait HaystackRest {
+trait HaystackRest {
     /// Returns a grid containing basic server information.
     fn about(&self) -> Result<Grid, Error>;
     /// Returns a grid describing what MIME types are available.
@@ -56,7 +56,7 @@ pub(crate) trait HaystackUrl {
 }
 
 /// Provides functions which correspond to some SkySpark REST API operations.
-pub trait SkySparkRest {
+trait SkySparkRest {
     /// Evaluate an Axon expression on the SkySpark server and return a grid
     /// containing the resulting data.
     fn eval(&self, axon_expr: &str) -> Result<Grid, Error>;

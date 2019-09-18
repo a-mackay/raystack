@@ -94,18 +94,18 @@ impl HashFunction {
 
 type Result<T> = std::result::Result<T, AuthError>;
 
-pub(crate) fn new_auth_token(
+pub(crate) async fn new_auth_token(
     client: &Client,
     url: &str,
     username: &str,
     password: &str,
 ) -> Result<String> {
-    let auth_session_cfg = auth_session_config(client, &url, username);
+    let auth_session_cfg = auth_session_config(client, &url, username).await?;
 
     let AuthSessionConfig {
         handshake_token,
         hash_fn,
-    } = auth_session_cfg?;
+    } = auth_session_cfg;
 
     let nonce = format!("{:x}", random::<i128>());
     let client_first_msg = format!("n={},r={}", username, nonce);
@@ -115,14 +115,14 @@ pub(crate) fn new_auth_token(
         &url,
         &handshake_token,
         &client_first_msg,
-    );
+    ).await?;
 
     let ServerFirstResponse {
         server_first_msg,
         server_iterations,
         server_nonce,
         server_salt,
-    } = server_first_res?;
+    } = server_first_res;
 
     let salted_password = hash_fn.pbkdf2(
         password.as_bytes(),
@@ -144,12 +144,12 @@ pub(crate) fn new_auth_token(
         &salted_password,
         &client_final_no_proof,
         &hash_fn,
-    );
+    ).await?;
 
     let ServerSecondResponse {
         auth_token,
         server_signature,
-    } = server_second_res?;
+    } = server_second_res;
 
     if is_server_valid(&auth_msg, &salted_password, &server_signature, &hash_fn)
     {
@@ -166,7 +166,7 @@ struct AuthSessionConfig {
     hash_fn: HashFunction,
 }
 
-fn auth_session_config(
+async fn auth_session_config(
     client: &Client,
     url: &str,
     username: &str,
@@ -176,7 +176,7 @@ fn auth_session_config(
     let res = client
         .get(url)
         .header("Authorization", auth_header_value)
-        .send()?;
+        .send().await?;
 
     let kvps = parse_key_value_pairs_from_header("www-authenticate", res)?;
     let handshake_token = kvps.get("handshakeToken")?;
@@ -195,7 +195,7 @@ struct ServerFirstResponse {
     server_salt: String,
 }
 
-fn server_first_response(
+async fn server_first_response(
     client: &Client,
     url: &str,
     handshake_token: &str,
@@ -209,7 +209,7 @@ fn server_first_response(
     let res = client
         .get(url)
         .header("Authorization", auth_header_value)
-        .send()?;
+        .send().await?;
 
     let kvps = parse_key_value_pairs_from_header("www-authenticate", res)?;
     let data_base64 = kvps.get("data")?;
@@ -234,7 +234,7 @@ struct ServerSecondResponse {
     server_signature: String,
 }
 
-fn server_second_response(
+async fn server_second_response(
     client: &Client,
     url: &str,
     handshake_token: &str,
@@ -267,7 +267,7 @@ fn server_second_response(
     let res = client
         .get(url)
         .header("Authorization", auth_header_value)
-        .send()?;
+        .send().await?;
 
     let auth_info =
         parse_key_value_pairs_from_header("authentication-info", res)?;
