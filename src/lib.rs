@@ -132,15 +132,20 @@ impl SkySparkClient {
         self.append_to_url("eval")
     }
 
-    fn get(&self, url: Url) -> reqwest::RequestBuilder {
-        self.client
+    async fn get(&self, url: Url) -> Result<Grid> {
+        let res: Result<reqwest::Response> = self.client
             .get(url)
             .header("Accept", "application/json")
             .header("Authorization", self.auth_header_value())
+            .send()
+            .await
+            .map_err(|err| err.into());
+
+        Self::res_to_grid(res?).await
     }
 
-    async fn post(&self, url: Url, grid: &Grid) -> Result<reqwest::Response> {
-        self.client
+    async fn post(&self, url: Url, grid: &Grid) -> Result<Grid> {
+        let res: Result<reqwest::Response> = self.client
             .post(url)
             .header("Accept", "application/json")
             .header("Authorization", self.auth_header_value())
@@ -148,7 +153,9 @@ impl SkySparkClient {
             .body(grid.to_string())
             .send()
             .await
-            .map_err(|err| err.into())
+            .map_err(|err| err.into());
+
+        Self::res_to_grid(res?).await
     }
 
     async fn res_to_grid(mut res: reqwest::Response) -> Result<Grid> {
@@ -201,10 +208,9 @@ fn add_backslash_if_necessary(url: Url) -> Url {
 }
 
 impl SkySparkClient {
-    // async fn about(&self) -> Result<Grid> {
-    //     let res = self.get(self.about_url()).send();//.await?;
-    //     Self::res_to_grid(res.await?)
-    // }
+    async fn about(&self) -> Result<Grid> {
+        self.get(self.about_url()).await
+    }
 
     // async fn formats(&self) -> Result<Grid> {
     //     let res = self.get(self.formats_url()).send().await?;
@@ -370,8 +376,7 @@ impl SkySparkClient {
     async fn eval(&self, axon_expr: &str) -> Result<Grid> {
         let row = json!({ "expr": axon_expr });
         let req_grid = Grid::new_internal(vec![row]);
-        let res = self.post(self.eval_url(), &req_grid).await?;
-        Self::res_to_grid(res).await
+        self.post(self.eval_url(), &req_grid).await
     }
 }
 
@@ -409,13 +414,13 @@ mod test {
         println!("\n{}", grid.to_string_pretty());
     }
 
-    // #[test]
-    // fn about() {
-    //     let client = new_client();
-    //     let grid = client.about().unwrap();
-    //     pprint(&grid);
-    //     assert_eq!(grid.rows()[0]["whoami"], json!(username()));
-    // }
+    #[tokio::test]
+    async fn about() {
+        let client = new_client().await;
+        let grid = client.about().await.unwrap();
+        pprint(&grid);
+        assert_eq!(grid.rows()[0]["whoami"], json!(username()));
+    }
 
     // #[test]
     // fn formats() {
