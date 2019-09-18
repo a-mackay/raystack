@@ -212,134 +212,125 @@ impl SkySparkClient {
         self.get(self.about_url()).await
     }
 
-    // async fn formats(&self) -> Result<Grid> {
-    //     let res = self.get(self.formats_url()).send().await?;
-    //     Self::res_to_grid(res)
-    // }
+    async fn formats(&self) -> Result<Grid> {
+        self.get(self.formats_url()).await
+    }
 
-    // async fn his_read(&self, id: &Ref, range: &HisReadRange) -> Result<Grid> {
-    //     let row = json!({
-    //         "id": id.to_encoded_json_string(),
-    //         "range": range.to_string()
-    //     });
-    //     let req_grid = Grid::new_internal(vec![row]);
+    async fn his_read(&self, id: &Ref, range: &HisReadRange) -> Result<Grid> {
+        let row = json!({
+            "id": id.to_encoded_json_string(),
+            "range": range.to_string()
+        });
+        let req_grid = Grid::new_internal(vec![row]);
 
-    //     let res = self.post(self.his_read_url(), &req_grid).send().await?;
-    //     Self::res_to_grid(res)
-    // }
+        self.post(self.his_read_url(), &req_grid).await
+    }
 
-    // async fn his_write_bool(
-    //     &self,
-    //     id: &Ref,
-    //     his_data: &[(DateTime<Tz>, bool)],
-    // ) -> Result<Grid> {
-    //     use api::to_zinc_encoded_string;
+    async fn his_write_bool(
+        &self,
+        id: &Ref,
+        his_data: &[(DateTime<Tz>, bool)],
+    ) -> Result<Grid> {
+        use api::to_zinc_encoded_string;
 
-    //     let rows = his_data
-    //         .iter()
-    //         .map(|(date_time, value)| {
-    //             json!({
-    //                 "ts": format!("t:{}", to_zinc_encoded_string(date_time)),
-    //                 "val": value
-    //             })
-    //         })
-    //         .collect();
+        let rows = his_data
+            .iter()
+            .map(|(date_time, value)| {
+                json!({
+                    "ts": format!("t:{}", to_zinc_encoded_string(date_time)),
+                    "val": value
+                })
+            })
+            .collect();
 
-    //     let mut req_grid = Grid::new_internal(rows);
-    //     req_grid.add_ref_to_meta(id);
+        let mut req_grid = Grid::new_internal(rows);
+        req_grid.add_ref_to_meta(id);
 
-    //     let res = self.post(self.his_write_url(), &req_grid).send().await?;
-    //     Self::res_to_grid(res)
-    // }
+        self.post(self.his_write_url(), &req_grid).await
+    }
 
-    // async fn his_write_num(
-    //     &self,
-    //     id: &Ref,
-    //     his_data: &[(DateTime<Tz>, f64)],
-    //     unit: &str,
-    // ) -> Result<Grid> {
-    //     use api::to_zinc_encoded_string;
+    async fn his_write_num(
+        &self,
+        id: &Ref,
+        his_data: &[(DateTime<Tz>, f64)],
+        unit: &str,
+    ) -> Result<Grid> {
+        use api::to_zinc_encoded_string;
 
-    //     let rows = his_data
-    //         .iter()
-    //         .map(|(date_time, value)| {
-    //             json!({
-    //                 "ts": format!("t:{}", to_zinc_encoded_string(date_time)),
-    //                 "val": format!("n:{} {}", value, unit)
-    //             })
-    //         })
-    //         .collect();
+        let rows = his_data
+            .iter()
+            .map(|(date_time, value)| {
+                json!({
+                    "ts": format!("t:{}", to_zinc_encoded_string(date_time)),
+                    "val": format!("n:{} {}", value, unit)
+                })
+            })
+            .collect();
 
-    //     let mut req_grid = Grid::new_internal(rows);
-    //     req_grid.add_ref_to_meta(id);
+        let mut req_grid = Grid::new_internal(rows);
+        req_grid.add_ref_to_meta(id);
 
-    //     let res = self.post(self.his_write_url(), &req_grid).send().await?;
-    //     Self::res_to_grid(res)
-    // }
+        self.post(self.his_write_url(), &req_grid).await
+    }
 
-    // async fn his_write_str(
-    //     &self,
-    //     id: &Ref,
-    //     his_data: &[(DateTime<Tz>, String)],
-    // ) -> Result<Grid> {
-    //     use api::to_zinc_encoded_string;
+    async fn his_write_str(
+        &self,
+        id: &Ref,
+        his_data: &[(DateTime<Tz>, String)],
+    ) -> Result<Grid> {
+        use api::to_zinc_encoded_string;
 
-    //     let rows = his_data
-    //         .iter()
-    //         .map(|(date_time, value)| {
-    //             json!({
-    //                 "ts": format!("t:{}", to_zinc_encoded_string(date_time)),
-    //                 "val": value
-    //             })
-    //         })
-    //         .collect();
+        let rows = his_data
+            .iter()
+            .map(|(date_time, value)| {
+                json!({
+                    "ts": format!("t:{}", to_zinc_encoded_string(date_time)),
+                    "val": value
+                })
+            })
+            .collect();
 
-    //     let mut req_grid = Grid::new_internal(rows);
-    //     req_grid.add_ref_to_meta(id);
+        let mut req_grid = Grid::new_internal(rows);
+        req_grid.add_ref_to_meta(id);
 
-    //     let res = self.post(self.his_write_url(), &req_grid).send().await?;
-    //     Self::res_to_grid(res)
-    // }
+        self.post(self.his_write_url(), &req_grid).await
+    }
 
-    // async fn nav(&self, nav_id: Option<&str>) -> Result<Grid> {
-    //     let req_grid = match nav_id {
-    //         Some(nav_id) => {
-    //             let row = json!({ "navId": nav_id });
-    //             Grid::new_internal(vec![row])
-    //         }
-    //         None => Grid::new_internal(Vec::new()),
-    //     };
+    async fn nav(&self, nav_id: Option<&str>) -> Result<Grid> {
+        let req_grid = match nav_id {
+            Some(nav_id) => {
+                let row = json!({ "navId": nav_id });
+                Grid::new_internal(vec![row])
+            }
+            None => Grid::new_internal(Vec::new()),
+        };
 
-    //     let res = self.post(self.nav_url(), &req_grid).send().await?;
-    //     Self::res_to_grid(res)
-    // }
+        self.post(self.nav_url(), &req_grid).await
+    }
 
-    // async fn ops(&self) -> Result<Grid> {
-    //     let res = self.get(self.ops_url()).send().await?;
-    //     Self::res_to_grid(res)
-    // }
+    async fn ops(&self) -> Result<Grid> {
+        self.get(self.ops_url()).await
+    }
 
-    // async fn read(&self, filter: &str, limit: Option<u64>) -> Result<Grid> {
-    //     let row = match limit {
-    //         Some(integer) => json!({"filter": filter, "limit": integer}),
-    //         None => json!({"filter": filter, "limit": "N"}),
-    //     };
+    async fn read(&self, filter: &str, limit: Option<u64>) -> Result<Grid> {
+        let row = match limit {
+            Some(integer) => json!({"filter": filter, "limit": integer}),
+            None => json!({"filter": filter, "limit": "N"}),
+        };
 
-    //     let req_grid = Grid::new_internal(vec![row]);
-    //     let res = self.post(self.read_url(), &req_grid).send().await?;
-    //     Self::res_to_grid(res)
-    // }
+        let req_grid = Grid::new_internal(vec![row]);
+        self.post(self.read_url(), &req_grid).await
+    }
 
-    // async fn read_by_ids(&self, ids: &[Ref]) -> Result<Grid> {
-    //     let rows = ids
-    //         .iter()
-    //         .map(|id| json!({"id": id.to_encoded_json_string()}))
-    //         .collect();
+    async fn read_by_ids(&self, ids: &[Ref]) -> Result<Grid> {
+        let rows = ids
+            .iter()
+            .map(|id| json!({"id": id.to_encoded_json_string()}))
+            .collect();
 
-    //     let req_grid = Grid::new_internal(rows);
-    //     let res = self.post(self.read_url(), &req_grid).send().await?;
-    //     Self::res_to_grid(res)
-    // }
+        let req_grid = Grid::new_internal(rows);
+        self.post(self.read_url(), &req_grid).await
+    }
 }
 
 impl HaystackUrl for SkySparkClient {
@@ -422,258 +413,267 @@ mod test {
         assert_eq!(grid.rows()[0]["whoami"], json!(username()));
     }
 
-    // #[test]
-    // fn formats() {
-    //     let client = new_client();
-    //     let grid = client.formats().unwrap();
-    //     pprint(&grid);
-    //     assert!(grid.rows()[0]["dis"].is_string());
-    // }
+    #[tokio::test]
+    async fn formats() {
+        let client = new_client().await;
+        let grid = client.formats().await.unwrap();
+        pprint(&grid);
+        assert!(grid.rows()[0]["dis"].is_string());
+    }
 
-    // #[test]
-    // fn his_read_today() {
-    //     his_read(&HisReadRange::Today);
-    // }
+    #[tokio::test]
+    async fn his_read_today() {
+        let range = HisReadRange::Today;
+        his_read(&range).await;
+    }
 
-    // #[test]
-    // fn his_read_yesterday() {
-    //     his_read(&HisReadRange::Yesterday);
-    // }
+    #[tokio::test]
+    async fn his_read_yesterday() {
+        let range = HisReadRange::Yesterday;
+        his_read(&range).await;
+    }
 
-    // #[test]
-    // fn his_read_date() {
-    //     his_read(&HisReadRange::Date(chrono::NaiveDate::from_ymd(2019, 1, 1)));
-    // }
+    #[tokio::test]
+    async fn his_read_date() {
+        let range = HisReadRange::Date(chrono::NaiveDate::from_ymd(2019, 1, 1));
+        his_read(&range).await;
+    }
 
-    // #[test]
-    // fn his_read_date_span() {
-    //     his_read(&HisReadRange::DateSpan {
-    //         start: chrono::NaiveDate::from_ymd(2019, 1, 1),
-    //         end: chrono::NaiveDate::from_ymd(2019, 1, 2),
-    //     });
-    // }
+    #[tokio::test]
+    async fn his_read_date_span() {
+        let range = HisReadRange::DateSpan {
+            start: chrono::NaiveDate::from_ymd(2019, 1, 1),
+            end: chrono::NaiveDate::from_ymd(2019, 1, 2),
+        };
+        his_read(&range).await;
+    }
 
-    // #[test]
-    // fn his_read_date_time_span() {
-    //     use chrono::{DateTime, Duration};
-    //     use chrono_tz::Australia::Sydney;
+    #[tokio::test]
+    async fn his_read_date_time_span() {
+        use chrono::{DateTime, Duration};
+        use chrono_tz::Australia::Sydney;
 
-    //     let start = DateTime::parse_from_rfc3339("2019-01-01T00:00:00+10:00")
-    //         .unwrap()
-    //         .with_timezone(&Sydney);
-    //     let end = start + Duration::days(1);
-    //     his_read(&HisReadRange::DateTimeSpan { start, end });
-    // }
+        let start = DateTime::parse_from_rfc3339("2019-01-01T00:00:00+10:00")
+            .unwrap()
+            .with_timezone(&Sydney);
+        let end = start + Duration::days(1);
+        let range = HisReadRange::DateTimeSpan { start, end };
+        his_read(&range).await;
+    }
 
-    // #[test]
-    // fn his_read_date_time() {
-    //     use chrono::DateTime;
-    //     use chrono_tz::Australia::Sydney;
+    #[tokio::test]
+    async fn his_read_date_time() {
+        use chrono::DateTime;
+        use chrono_tz::Australia::Sydney;
 
-    //     let date_time =
-    //         DateTime::parse_from_rfc3339("2012-10-01T00:00:00+10:00")
-    //             .unwrap()
-    //             .with_timezone(&Sydney);
-    //     his_read(&HisReadRange::SinceDateTime { date_time });
-    // }
+        let date_time =
+            DateTime::parse_from_rfc3339("2012-10-01T00:00:00+10:00")
+                .unwrap()
+                .with_timezone(&Sydney);
+        let range = HisReadRange::SinceDateTime { date_time };
+        his_read(&range).await;
+    }
 
-    // #[test]
-    // fn his_read_date_time_utc() {
-    //     use chrono::DateTime;
-    //     use chrono_tz::Etc::UTC;
+    #[tokio::test]
+    async fn his_read_date_time_utc() {
+        use chrono::DateTime;
+        use chrono_tz::Etc::UTC;
 
-    //     let date_time = DateTime::parse_from_rfc3339("2012-10-01T00:00:00Z")
-    //         .unwrap()
-    //         .with_timezone(&UTC);
-    //     his_read(&HisReadRange::SinceDateTime { date_time });
-    // }
+        let date_time = DateTime::parse_from_rfc3339("2012-10-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&UTC);
+        let range = HisReadRange::SinceDateTime { date_time };
+        his_read(&range).await;
+    }
 
-    // fn his_read(range: &HisReadRange) {
-    //     let filter = format!("point and his and hisEnd");
+    async fn his_read(range: &HisReadRange) {
+        let filter = format!("point and his and hisEnd");
 
-    //     let client = new_client();
-    //     let points_grid = client.read(&filter, Some(1)).unwrap();
-    //     pprint(&points_grid);
+        let client = new_client().await;
+        let points_grid = client.read(&filter, Some(1)).await.unwrap();
+        pprint(&points_grid);
 
-    //     let point_ref_str = points_grid.rows()[0]["id"].as_str().unwrap();
-    //     let point_ref = Ref::from_encoded_json_string(&point_ref_str).unwrap();
-    //     let his_grid = client.his_read(&point_ref, &range).unwrap();
-    //     pprint(&his_grid);
+        let point_ref_str = points_grid.rows()[0]["id"].as_str().unwrap();
+        let point_ref = Ref::from_encoded_json_string(&point_ref_str).unwrap();
+        let his_grid = client.his_read(&point_ref, &range).await.unwrap();
+        pprint(&his_grid);
 
-    //     assert!(his_grid.meta()["hisStart"].is_string());
-    //     assert!(his_grid.meta()["hisEnd"].is_string());
-    // }
+        assert!(his_grid.meta()["hisStart"].is_string());
+        assert!(his_grid.meta()["hisEnd"].is_string());
+    }
 
-    // #[test]
-    // fn his_write_bool() {
-    //     assert_eq!("Add a matching point to the project", "");
-    //     use chrono::{DateTime, Duration};
-    //     use chrono_tz::Australia::Sydney;
+    #[tokio::test]
+    async fn his_write_bool() {
+        assert_eq!("Add a matching point to the project", "");
+        use chrono::{DateTime, Duration};
+        use chrono_tz::Australia::Sydney;
 
-    //     let date_time1 =
-    //         DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
-    //             .unwrap()
-    //             .with_timezone(&Sydney);
-    //     let date_time2 = date_time1 + Duration::minutes(5);
-    //     let date_time3 = date_time1 + Duration::minutes(10);
+        let date_time1 =
+            DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
+                .unwrap()
+                .with_timezone(&Sydney);
+        let date_time2 = date_time1 + Duration::minutes(5);
+        let date_time3 = date_time1 + Duration::minutes(10);
 
-    //     let client = new_client();
-    //     let id =
-    //         Ref::new("@p:the_project:r:24efe1c4-24aef280".to_owned()).unwrap();
-    //     let his_data =
-    //         vec![(date_time1, true), (date_time2, false), (date_time3, true)];
+        let client = new_client().await;
+        let id =
+            Ref::new("@p:the_project:r:24efe1c4-24aef280".to_owned()).unwrap();
+        let his_data =
+            vec![(date_time1, true), (date_time2, false), (date_time3, true)];
 
-    //     let res = client.his_write_bool(&id, &his_data[..]).unwrap();
-    //     pprint(&res);
-    //     assert_eq!(res.rows().len(), 0);
-    // }
+        let res = client.his_write_bool(&id, &his_data[..]).await.unwrap();
+        pprint(&res);
+        assert_eq!(res.rows().len(), 0);
+    }
 
-    // #[test]
-    // fn his_write_num() {
-    //     assert_eq!("Add a matching point to the project", "");
-    //     use chrono::{DateTime, Duration};
-    //     use chrono_tz::Australia::Sydney;
+    #[tokio::test]
+    async fn his_write_num() {
+        assert_eq!("Add a matching point to the project", "");
+        use chrono::{DateTime, Duration};
+        use chrono_tz::Australia::Sydney;
 
-    //     let date_time1 =
-    //         DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
-    //             .unwrap()
-    //             .with_timezone(&Sydney);
-    //     let date_time2 = date_time1 + Duration::minutes(5);
-    //     let date_time3 = date_time1 + Duration::minutes(10);
+        let date_time1 =
+            DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
+                .unwrap()
+                .with_timezone(&Sydney);
+        let date_time2 = date_time1 + Duration::minutes(5);
+        let date_time3 = date_time1 + Duration::minutes(10);
 
-    //     let client = new_client();
-    //     let id =
-    //         Ref::new("@p:the_project:r:24efe317-acdc8f48".to_owned()).unwrap();
-    //     let his_data =
-    //         vec![(date_time1, 10.0), (date_time2, 15.34), (date_time3, 1.234)];
+        let client = new_client().await;
+        let id =
+            Ref::new("@p:the_project:r:24efe317-acdc8f48".to_owned()).unwrap();
+        let his_data =
+            vec![(date_time1, 10.0), (date_time2, 15.34), (date_time3, 1.234)];
 
-    //     let res = client.his_write_num(&id, &his_data[..], "L/s").unwrap();
-    //     pprint(&res);
-    //     assert_eq!(res.rows().len(), 0);
-    // }
+        let res = client.his_write_num(&id, &his_data[..], "L/s").await.unwrap();
+        pprint(&res);
+        assert_eq!(res.rows().len(), 0);
+    }
 
-    // #[test]
-    // fn his_write_str() {
-    //     assert_eq!("Add a matching point to the project", "");
-    //     use chrono::{DateTime, Duration};
-    //     use chrono_tz::Australia::Sydney;
+    #[tokio::test]
+    async fn his_write_str() {
+        assert_eq!("Add a matching point to the project", "");
+        use chrono::{DateTime, Duration};
+        use chrono_tz::Australia::Sydney;
 
-    //     let date_time1 =
-    //         DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
-    //             .unwrap()
-    //             .with_timezone(&Sydney);
-    //     let date_time2 = date_time1 + Duration::minutes(5);
-    //     let date_time3 = date_time1 + Duration::minutes(10);
+        let date_time1 =
+            DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
+                .unwrap()
+                .with_timezone(&Sydney);
+        let date_time2 = date_time1 + Duration::minutes(5);
+        let date_time3 = date_time1 + Duration::minutes(10);
 
-    //     let client = new_client();
-    //     let id =
-    //         Ref::new("@p:the_project:r:24efdc96-96baaf9d".to_owned()).unwrap();
-    //     let his_data = vec![
-    //         (date_time1, "hello".to_owned()),
-    //         (date_time2, "world".to_owned()),
-    //         (date_time3, "!".to_owned()),
-    //     ];
+        let client = new_client().await;
+        let id =
+            Ref::new("@p:the_project:r:24efdc96-96baaf9d".to_owned()).unwrap();
+        let his_data = vec![
+            (date_time1, "hello".to_owned()),
+            (date_time2, "world".to_owned()),
+            (date_time3, "!".to_owned()),
+        ];
 
-    //     let res = client.his_write_str(&id, &his_data[..]).unwrap();
-    //     pprint(&res);
-    //     assert_eq!(res.rows().len(), 0);
-    // }
+        let res = client.his_write_str(&id, &his_data[..]).await.unwrap();
+        pprint(&res);
+        assert_eq!(res.rows().len(), 0);
+    }
 
-    // #[test]
-    // fn nav_root() {
-    //     let client = new_client();
-    //     let grid = client.nav(None).unwrap();
-    //     pprint(&grid);
-    //     assert!(grid.rows()[0]["navId"].is_string());
-    // }
+    #[tokio::test]
+    async fn nav_root() {
+        let client = new_client().await;
+        let grid = client.nav(None).await.unwrap();
+        pprint(&grid);
+        assert!(grid.rows()[0]["navId"].is_string());
+    }
 
-    // #[test]
-    // fn nav() {
-    //     let client = new_client();
-    //     let root_grid = client.nav(None).unwrap();
-    //     let child_nav_id = root_grid.rows()[0]["navId"].as_str().unwrap();
+    #[tokio::test]
+    async fn nav() {
+        let client = new_client().await;
+        let root_grid = client.nav(None).await.unwrap();
+        let child_nav_id = root_grid.rows()[0]["navId"].as_str().unwrap();
 
-    //     let child_grid = client.nav(Some(&child_nav_id)).unwrap();
-    //     pprint(&child_grid);
-    //     let final_nav_id = child_grid.rows()[0]["navId"].as_str().unwrap();
-    //     assert_ne!(child_nav_id, final_nav_id);
-    // }
+        let child_grid = client.nav(Some(&child_nav_id)).await.unwrap();
+        pprint(&child_grid);
+        let final_nav_id = child_grid.rows()[0]["navId"].as_str().unwrap();
+        assert_ne!(child_nav_id, final_nav_id);
+    }
 
-    // #[test]
-    // fn ops() {
-    //     let client = new_client();
-    //     let grid = client.ops().unwrap();
-    //     pprint(&grid);
-    //     assert!(grid.rows()[0]["name"].is_string());
-    // }
+    #[tokio::test]
+    async fn ops() {
+        let client = new_client().await;
+        let grid = client.ops().await.unwrap();
+        pprint(&grid);
+        assert!(grid.rows()[0]["name"].is_string());
+    }
 
-    // #[test]
-    // fn read_with_no_limit() {
-    //     let client = new_client();
-    //     let grid = client.read("projMeta or uiMeta", None).unwrap();
-    //     pprint(&grid);
+    #[tokio::test]
+    async fn read_with_no_limit() {
+        let client = new_client().await;
+        let grid = client.read("projMeta or uiMeta", None).await.unwrap();
+        pprint(&grid);
 
-    //     assert!(grid.rows()[0]["id"].is_string());
-    //     let proj_meta = &grid.rows()[0]["projMeta"];
-    //     let ui_meta = &grid.rows()[0]["uiMeta"];
-    //     let marker = json!("m:");
-    //     assert!(*proj_meta == marker || *ui_meta == marker);
-    // }
+        assert!(grid.rows()[0]["id"].is_string());
+        let proj_meta = &grid.rows()[0]["projMeta"];
+        let ui_meta = &grid.rows()[0]["uiMeta"];
+        let marker = json!("m:");
+        assert!(*proj_meta == marker || *ui_meta == marker);
+    }
 
-    // #[test]
-    // fn read_with_zero_limit() {
-    //     let client = new_client();
-    //     let grid = client.read("id", Some(0)).unwrap();
-    //     pprint(&grid);
-    //     assert_eq!(grid.rows().len(), 0);
-    // }
+    #[tokio::test]
+    async fn read_with_zero_limit() {
+        let client = new_client().await;
+        let grid = client.read("id", Some(0)).await.unwrap();
+        pprint(&grid);
+        assert_eq!(grid.rows().len(), 0);
+    }
 
-    // #[test]
-    // fn read_with_non_zero_limit() {
-    //     let client = new_client();
-    //     let grid = client.read("id", Some(1)).unwrap();
-    //     pprint(&grid);
-    //     assert_eq!(grid.rows().len(), 1);
+    #[tokio::test]
+    async fn read_with_non_zero_limit() {
+        let client = new_client().await;
+        let grid = client.read("id", Some(1)).await.unwrap();
+        pprint(&grid);
+        assert_eq!(grid.rows().len(), 1);
 
-    //     let grid = client.read("id", Some(3)).unwrap();
-    //     pprint(&grid);
-    //     assert_eq!(grid.rows().len(), 3);
-    // }
+        let grid = client.read("id", Some(3)).await.unwrap();
+        pprint(&grid);
+        assert_eq!(grid.rows().len(), 3);
+    }
 
-    // #[test]
-    // fn read_by_ids_with_no_ids() {
-    //     let client = new_client();
-    //     let grid_result = client.read_by_ids(&Vec::new());
-    //     assert!(grid_result.is_err());
-    // }
+    #[tokio::test]
+    async fn read_by_ids_with_no_ids() {
+        let client = new_client().await;
+        let ids = vec![];
+        let grid_result = client.read_by_ids(&ids).await;
+        assert!(grid_result.is_err());
+    }
 
-    // #[test]
-    // fn read_by_ids_single() {
-    //     let client = new_client();
-    //     // Get some valid ids:
-    //     let grid1 = client.read("id", Some(1)).unwrap();
-    //     let raw_id1 = &grid1.rows()[0]["id"].as_str().unwrap();
-    //     let ref1 = Ref::from_encoded_json_string(raw_id1).unwrap();
+    #[tokio::test]
+    async fn read_by_ids_single() {
+        let client = new_client().await;
+        // Get some valid ids:
+        let grid1 = client.read("id", Some(1)).await.unwrap();
+        let raw_id1 = &grid1.rows()[0]["id"].as_str().unwrap();
+        let ref1 = Ref::from_encoded_json_string(raw_id1).unwrap();
+        let ids = vec![ref1];
+        let grid2 = client.read_by_ids(&ids).await.unwrap();
+        pprint(&grid2);
+        assert_eq!(grid1, grid2);
+    }
 
-    //     let grid2 = client.read_by_ids(&vec![ref1]).unwrap();
-    //     pprint(&grid2);
-    //     assert_eq!(grid1, grid2);
-    // }
+    #[tokio::test]
+    async fn read_by_ids_multiple() {
+        let client = new_client().await;
+        // Get some valid ids:
+        let grid1 = client.read("id", Some(2)).await.unwrap();
+        let raw_id1 = &grid1.rows()[0]["id"].as_str().unwrap();
+        let raw_id2 = &grid1.rows()[1]["id"].as_str().unwrap();
+        let ref1 = Ref::from_encoded_json_string(raw_id1).unwrap();
+        let ref2 = Ref::from_encoded_json_string(raw_id2).unwrap();
 
-    // #[test]
-    // fn read_by_ids_multiple() {
-    //     let client = new_client();
-    //     // Get some valid ids:
-    //     let grid1 = client.read("id", Some(2)).unwrap();
-    //     let raw_id1 = &grid1.rows()[0]["id"].as_str().unwrap();
-    //     let raw_id2 = &grid1.rows()[1]["id"].as_str().unwrap();
-    //     let ref1 = Ref::from_encoded_json_string(raw_id1).unwrap();
-    //     let ref2 = Ref::from_encoded_json_string(raw_id2).unwrap();
-
-    //     let grid2 = client.read_by_ids(&vec![ref1, ref2]).unwrap();
-    //     pprint(&grid2);
-    //     assert_eq!(grid1, grid2);
-    // }
+        let ids = vec![ref1, ref2];
+        let grid2 = client.read_by_ids(&ids).await.unwrap();
+        pprint(&grid2);
+        assert_eq!(grid1, grid2);
+    }
 
     #[tokio::test]
     async fn eval() {
