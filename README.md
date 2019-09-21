@@ -6,7 +6,7 @@
 A SkySpark 3 client library for Rust.
 
 ## Documentation
-See [docs.rs](https://docs.rs/raystack/0.1.0/raystack/).
+See [docs.rs](https://docs.rs/raystack).
 
 ## Features
 * SkySpark REST API `eval` operation.
