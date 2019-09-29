@@ -109,6 +109,12 @@ impl std::str::FromStr for Ref {
     }
 }
 
+impl std::fmt::Display for Ref {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_axon_code())
+    }
+}
+
 impl std::convert::AsRef<str> for Ref {
     fn as_ref(&self) -> &str {
         &self.0
