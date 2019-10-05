@@ -2,6 +2,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/raystack.svg)](https://crates.io/crates/raystack)
 [![Documentation](https://docs.rs/raystack/badge.svg)](https://docs.rs/raystack)
+[![](https://tokei.rs/b1/github/a-mackay/raystack)](https://github.com/XAMPPRocky/tokei)
 ![Build Status](https://github.com/a-mackay/raystack/workflows/build/badge.svg)
 
 
