@@ -641,8 +641,6 @@ mod test {
         assert!(grid
             .col_names()
             .contains(&TagName::new("newCol".to_owned()).unwrap()));
-
-        println!("{}", grid.to_csv_string().unwrap());
     }
 
     #[test]
@@ -672,8 +670,6 @@ mod test {
         assert!(grid.to_string().contains("abcd1234Hello World"));
         assert!(grid.to_string().contains("cdef5678Hello Kitty"));
         assert_eq!(grid.col_names().len(), 2);
-
-        println!("{}", grid.to_csv_string().unwrap());
     }
 
     #[test]

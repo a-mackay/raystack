@@ -377,16 +377,16 @@ mod test {
     use url::Url;
 
     fn project_api_url() -> Url {
-        let url_str = std::env::var("RUST_SKYSPARK_PROJECT_API_URL").unwrap();
+        let url_str = std::env::var("RAYSTACK_SKYSPARK_PROJECT_API_URL").unwrap();
         Url::parse(&url_str).unwrap()
     }
 
     fn username() -> String {
-        std::env::var("RUST_SKYSPARK_USERNAME").unwrap()
+        std::env::var("RAYSTACK_SKYSPARK_USERNAME").unwrap()
     }
 
     fn password() -> String {
-        std::env::var("RUST_SKYSPARK_PASSWORD").unwrap()
+        std::env::var("RAYSTACK_SKYSPARK_PASSWORD").unwrap()
     }
 
     fn new_client() -> SkySparkClient {
@@ -394,15 +394,10 @@ mod test {
             .unwrap()
     }
 
-    fn pprint(grid: &Grid) {
-        println!("\n{}", grid.to_string_pretty());
-    }
-
     #[test]
     fn about() {
         let client = new_client();
         let grid = client.about().unwrap();
-        pprint(&grid);
         assert_eq!(grid.rows()[0]["whoami"], json!(username()));
     }
 
@@ -410,7 +405,6 @@ mod test {
     fn formats() {
         let client = new_client();
         let grid = client.formats().unwrap();
-        pprint(&grid);
         assert!(grid.rows()[0]["dis"].is_string());
     }
 
@@ -477,12 +471,10 @@ mod test {
 
         let client = new_client();
         let points_grid = client.read(&filter, Some(1)).unwrap();
-        pprint(&points_grid);
 
         let point_ref_str = points_grid.rows()[0]["id"].as_str().unwrap();
         let point_ref = Ref::from_encoded_json_string(&point_ref_str).unwrap();
         let his_grid = client.his_read(&point_ref, &range).unwrap();
-        pprint(&his_grid);
 
         assert!(his_grid.meta()["hisStart"].is_string());
         assert!(his_grid.meta()["hisEnd"].is_string());
@@ -508,7 +500,6 @@ mod test {
             vec![(date_time1, true), (date_time2, false), (date_time3, true)];
 
         let res = client.his_write_bool(&id, &his_data[..]).unwrap();
-        pprint(&res);
         assert_eq!(res.rows().len(), 0);
     }
 
@@ -532,7 +523,6 @@ mod test {
             vec![(date_time1, 10.0), (date_time2, 15.34), (date_time3, 1.234)];
 
         let res = client.his_write_num(&id, &his_data[..], "L/s").unwrap();
-        pprint(&res);
         assert_eq!(res.rows().len(), 0);
     }
 
@@ -559,7 +549,6 @@ mod test {
         ];
 
         let res = client.his_write_str(&id, &his_data[..]).unwrap();
-        pprint(&res);
         assert_eq!(res.rows().len(), 0);
     }
 
@@ -567,7 +556,6 @@ mod test {
     fn nav_root() {
         let client = new_client();
         let grid = client.nav(None).unwrap();
-        pprint(&grid);
         assert!(grid.rows()[0]["navId"].is_string());
     }
 
@@ -578,7 +566,6 @@ mod test {
         let child_nav_id = root_grid.rows()[0]["navId"].as_str().unwrap();
 
         let child_grid = client.nav(Some(&child_nav_id)).unwrap();
-        pprint(&child_grid);
         let final_nav_id = child_grid.rows()[0]["navId"].as_str().unwrap();
         assert_ne!(child_nav_id, final_nav_id);
     }
@@ -587,7 +574,6 @@ mod test {
     fn ops() {
         let client = new_client();
         let grid = client.ops().unwrap();
-        pprint(&grid);
         assert!(grid.rows()[0]["name"].is_string());
     }
 
@@ -595,7 +581,6 @@ mod test {
     fn read_with_no_limit() {
         let client = new_client();
         let grid = client.read("projMeta or uiMeta", None).unwrap();
-        pprint(&grid);
 
         assert!(grid.rows()[0]["id"].is_string());
         let proj_meta = &grid.rows()[0]["projMeta"];
@@ -608,7 +593,6 @@ mod test {
     fn read_with_zero_limit() {
         let client = new_client();
         let grid = client.read("id", Some(0)).unwrap();
-        pprint(&grid);
         assert_eq!(grid.rows().len(), 0);
     }
 
@@ -616,11 +600,9 @@ mod test {
     fn read_with_non_zero_limit() {
         let client = new_client();
         let grid = client.read("id", Some(1)).unwrap();
-        pprint(&grid);
         assert_eq!(grid.rows().len(), 1);
 
         let grid = client.read("id", Some(3)).unwrap();
-        pprint(&grid);
         assert_eq!(grid.rows().len(), 3);
     }
 
@@ -640,7 +622,6 @@ mod test {
         let ref1 = Ref::from_encoded_json_string(raw_id1).unwrap();
 
         let grid2 = client.read_by_ids(&vec![ref1]).unwrap();
-        pprint(&grid2);
         assert_eq!(grid1, grid2);
     }
 
@@ -655,7 +636,6 @@ mod test {
         let ref2 = Ref::from_encoded_json_string(raw_id2).unwrap();
 
         let grid2 = client.read_by_ids(&vec![ref1, ref2]).unwrap();
-        pprint(&grid2);
         assert_eq!(grid1, grid2);
     }
 
@@ -664,7 +644,6 @@ mod test {
         let client = new_client();
         let axon_expr = "readAll(id and mod)[0..1].keepCols([\"id\", \"mod\"])";
         let grid = client.eval(axon_expr).unwrap();
-        pprint(&grid);
         assert!(grid.rows()[0]["id"].is_string());
     }
 
