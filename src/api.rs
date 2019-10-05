@@ -86,7 +86,7 @@ pub enum HisReadRange {
 const DATE_FMT: &str = "%Y-%m-%d";
 
 impl HisReadRange {
-    pub(crate) fn to_string(&self) -> String {
+    pub(crate) fn to_json_request_string(&self) -> String {
         match self {
             Self::Today => "today".to_owned(),
             Self::Yesterday => "yesterday".to_owned(),

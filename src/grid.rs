@@ -425,13 +425,13 @@ impl Grid {
     }
 
     /// Return the string representation of the underlying JSON value.
-    pub fn to_string(&self) -> String {
+    pub fn to_json_string(&self) -> String {
         to_string(&self.json)
             .expect("serializing grid to String should never fail")
     }
 
     /// Return a pretty formatted string representing the underlying JSON value.
-    pub fn to_string_pretty(&self) -> String {
+    pub fn to_json_string_pretty(&self) -> String {
         to_string_pretty(&self.json)
             .expect("serializing grid to String should never fail")
     }
@@ -636,8 +636,8 @@ mod test {
             grid.rows()[1]["newCol"].as_str().unwrap(),
             "cdef5678Hello Kitty"
         );
-        assert!(grid.to_string().contains("abcd1234Hello World"));
-        assert!(grid.to_string().contains("cdef5678Hello Kitty"));
+        assert!(grid.to_json_string().contains("abcd1234Hello World"));
+        assert!(grid.to_json_string().contains("cdef5678Hello Kitty"));
         assert!(grid
             .col_names()
             .contains(&TagName::new("newCol".to_owned()).unwrap()));
@@ -667,8 +667,8 @@ mod test {
             grid.rows()[1]["dis"].as_str().unwrap(),
             "cdef5678Hello Kitty"
         );
-        assert!(grid.to_string().contains("abcd1234Hello World"));
-        assert!(grid.to_string().contains("cdef5678Hello Kitty"));
+        assert!(grid.to_json_string().contains("abcd1234Hello World"));
+        assert!(grid.to_json_string().contains("cdef5678Hello Kitty"));
         assert_eq!(grid.col_names().len(), 2);
     }
 

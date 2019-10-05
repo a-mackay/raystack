@@ -31,7 +31,7 @@
 //!         let sites_grid = client.eval("readAll(site)").unwrap();
 //!     
 //!         // Print the raw JSON:
-//!         println!("{}", sites_grid.to_string_pretty());
+//!         println!("{}", sites_grid.to_json_string_pretty());
 //!     
 //!         // Working with the Grid struct:
 //!         println!("All columns: {:?}", sites_grid.cols());
@@ -140,7 +140,7 @@ impl SkySparkClient {
             .header("Accept", "application/json")
             .header("Authorization", self.auth_header_value())
             .header("Content-Type", "application/json")
-            .body(grid.to_string())
+            .body(grid.to_json_string())
     }
 
     fn res_to_grid(mut res: reqwest::Response) -> Result<Grid> {
@@ -206,7 +206,7 @@ impl HaystackRest for SkySparkClient {
     fn his_read(&self, id: &Ref, range: &HisReadRange) -> Result<Grid> {
         let row = json!({
             "id": id.to_encoded_json_string(),
-            "range": range.to_string()
+            "range": range.to_json_request_string()
         });
         let req_grid = Grid::new_internal(vec![row]);
 

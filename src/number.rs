@@ -57,20 +57,15 @@ impl Number {
             Err(ParseNumberError::from_str(&json_string))
         }
     }
-
-    /// Return a string representation of this number.
-    pub fn to_string(&self) -> String {
-        if let Some(unit) = self.unit() {
-            format!("{} {}", self.value(), unit)
-        } else {
-            self.value().to_string()
-        }
-    }
 }
 
 impl std::fmt::Display for Number {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string())
+        if let Some(unit) = self.unit() {
+            write!(f, "{} {}", self.value(), unit)
+        } else {
+            write!(f, "{}", self.value().to_string())
+        }
     }
 }
 
