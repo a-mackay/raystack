@@ -11,7 +11,7 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Run Unit Tests
-      run: cargo test --verbose
+      run: cargo test --lib --verbose
       env:
         RAYSTACK_SKYSPARK_PROJECT_API_URL: ${{ secrets.RAYSTACK_SKYSPARK_PROJECT_API_URL }}
         RAYSTACK_SKYSPARK_USERNAME: ${{ secrets.RAYSTACK_SKYSPARK_USERNAME }}
