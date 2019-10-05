@@ -370,14 +370,14 @@ impl SkySparkRest for SkySparkClient {
 #[cfg(test)]
 mod test {
     use crate::api::{HaystackRest, HisReadRange, SkySparkRest};
-    use crate::grid::Grid;
     use crate::hsref::Ref;
     use crate::SkySparkClient;
     use serde_json::json;
     use url::Url;
 
     fn project_api_url() -> Url {
-        let url_str = std::env::var("RAYSTACK_SKYSPARK_PROJECT_API_URL").unwrap();
+        let url_str =
+            std::env::var("RAYSTACK_SKYSPARK_PROJECT_API_URL").unwrap();
         Url::parse(&url_str).unwrap()
     }
 
@@ -480,11 +480,21 @@ mod test {
         assert!(his_grid.meta()["hisEnd"].is_string());
     }
 
+    fn get_ref_for_filter(client: &SkySparkClient, filter: &str) -> Ref {
+        let points_grid = client.read(filter, Some(1)).unwrap();
+        let point_ref = points_grid.rows()[0]["id"]
+            .as_str()
+            .and_then(|ref_str| Ref::from_encoded_json_string(ref_str).ok())
+            .unwrap();
+        point_ref
+    }
+
     #[test]
     fn his_write_bool() {
-        assert_eq!("Add a matching point to the project", "");
         use chrono::{DateTime, Duration};
         use chrono_tz::Australia::Sydney;
+
+        let client = new_client();
 
         let date_time1 =
             DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
@@ -493,9 +503,10 @@ mod test {
         let date_time2 = date_time1 + Duration::minutes(5);
         let date_time3 = date_time1 + Duration::minutes(10);
 
-        let client = new_client();
-        let id =
-            Ref::new("@p:the_project:r:24efe1c4-24aef280".to_owned()).unwrap();
+        let id = get_ref_for_filter(
+            &client,
+            "continuousIntegrationHisWritePoint and kind == \"Bool\"",
+        );
         let his_data =
             vec![(date_time1, true), (date_time2, false), (date_time3, true)];
 
@@ -505,7 +516,6 @@ mod test {
 
     #[test]
     fn his_write_num() {
-        assert_eq!("Add a matching point to the project", "");
         use chrono::{DateTime, Duration};
         use chrono_tz::Australia::Sydney;
 
@@ -517,8 +527,11 @@ mod test {
         let date_time3 = date_time1 + Duration::minutes(10);
 
         let client = new_client();
-        let id =
-            Ref::new("@p:the_project:r:24efe317-acdc8f48".to_owned()).unwrap();
+
+        let id = get_ref_for_filter(
+            &client,
+            "continuousIntegrationHisWritePoint and kind == \"Number\"",
+        );
         let his_data =
             vec![(date_time1, 10.0), (date_time2, 15.34), (date_time3, 1.234)];
 
@@ -528,7 +541,6 @@ mod test {
 
     #[test]
     fn his_write_str() {
-        assert_eq!("Add a matching point to the project", "");
         use chrono::{DateTime, Duration};
         use chrono_tz::Australia::Sydney;
 
@@ -540,8 +552,10 @@ mod test {
         let date_time3 = date_time1 + Duration::minutes(10);
 
         let client = new_client();
-        let id =
-            Ref::new("@p:the_project:r:24efdc96-96baaf9d".to_owned()).unwrap();
+        let id = get_ref_for_filter(
+            &client,
+            "continuousIntegrationHisWritePoint and kind == \"Str\"",
+        );
         let his_data = vec![
             (date_time1, "hello".to_owned()),
             (date_time2, "world".to_owned()),
