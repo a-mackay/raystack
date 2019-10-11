@@ -47,14 +47,11 @@ impl HashFunction {
     /// See the documentation for hmac::Key::new for the restrictions on
     /// `key_value`. 
     fn hmac_sign(&self, key_value: &[u8], data: &[u8]) -> hmac::Tag {
-        let key = match self {
-            HashFunction::Sha256 => {
-                hmac::Key::new(hmac::HMAC_SHA256, key_value) // TODO don't think this will work
-            },
-            HashFunction::Sha512 => {
-                hmac::Key::new(hmac::HMAC_SHA512, key_value) // TODO simplify
-            },
+        let algorithm = match self {
+            HashFunction::Sha256 => hmac::HMAC_SHA256,
+            HashFunction::Sha512 => hmac::HMAC_SHA512,
         };
+        let key = hmac::Key::new(algorithm, key_value);
         hmac::sign(&key, data)
     }
 
