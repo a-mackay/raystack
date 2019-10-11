@@ -1,5 +1,4 @@
 use base64;
-use rand::random;
 use reqwest::{Client, Response};
 use ring::{digest, hmac, pbkdf2};
 use std::num::NonZeroU32;
@@ -73,6 +72,7 @@ pub(crate) async fn new_auth_token(
     url: &str,
     username: &str,
     password: &str,
+    rng: &ring::rand::SystemRandom,
 ) -> Result<String> {
     let auth_session_cfg = auth_session_config(client, &url, username).await?;
 
@@ -81,7 +81,7 @@ pub(crate) async fn new_auth_token(
         hash_fn,
     } = auth_session_cfg;
 
-    let nonce = format!("{:x}", random::<i128>()); // TODO make this crypto strength
+    let nonce = generate_nonce(rng);
     let client_first_msg = format!("n={},r={}", username, nonce);
 
     let server_first_res = server_first_response(
@@ -137,6 +137,18 @@ pub(crate) async fn new_auth_token(
             kind: AuthErrorKind::ServerValidationError,
         })
     }
+}
+
+fn generate_nonce(rng: &dyn ring::rand::SecureRandom) -> String {
+    use std::fmt::Write;
+
+    let mut out = vec![0u8; 32];
+    rng.fill(&mut out).expect("TODO - artisanally designed errors");
+    let mut nonce = String::new();
+    for byte in out.iter() {
+        write!(&mut nonce, "{:x}", byte).expect("unable to write to string");
+    }
+    nonce
 }
 
 struct AuthSessionConfig {
@@ -271,13 +283,10 @@ fn is_server_valid(
     server_signature: &str,
     hash_fn: &HashFunction,
 ) -> bool {
-    // TODO hmac::verify method?
     let computed_server_key_tag = hash_fn.hmac_sign(salted_password, b"Server Key");
     let computed_server_key = computed_server_key_tag.as_ref();
-        // let computed_server_key = hash_fn.hmac(salted_password, b"Server Key");
     let computed_server_signature_tag = hash_fn.hmac_sign(computed_server_key, auth_msg.as_bytes());
     let computed_server_signature = computed_server_signature_tag.as_ref();
-        // hash_fn.hmac(&computed_server_key, auth_msg.as_bytes());
     let computed_server_signature = base64::encode(computed_server_signature);
 
     computed_server_signature == server_signature
