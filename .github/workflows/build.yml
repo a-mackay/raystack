@@ -9,12 +9,12 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Build
-      run: cargo build --verbose
+      run: cargo +beta build --verbose
     - name: Run Unit Tests
-      run: cargo test --lib --verbose
+      run: cargo +beta test --lib --verbose
       env:
         RAYSTACK_SKYSPARK_PROJECT_API_URL: ${{ secrets.RAYSTACK_SKYSPARK_PROJECT_API_URL }}
         RAYSTACK_SKYSPARK_USERNAME: ${{ secrets.RAYSTACK_SKYSPARK_USERNAME }}
         RAYSTACK_SKYSPARK_PASSWORD: ${{ secrets.RAYSTACK_SKYSPARK_PASSWORD }}
     - name: Run Doc Tests
-      run: cargo test --doc --verbose
+      run: cargo +beta test --doc --verbose
