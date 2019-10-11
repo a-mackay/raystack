@@ -1,8 +1,6 @@
 use crate::auth::AuthError;
 use crate::grid::{Grid, ParseJsonGridError};
 
-pub(crate) type Result<T> = std::result::Result<T, Error>;
-
 /// Encapsulates all errors that can occur in this crate.
 #[derive(Debug)]
 pub struct Error {
