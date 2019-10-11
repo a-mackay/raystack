@@ -8,13 +8,18 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - name: Setup Rust Beta Toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: beta
+        override: true
     - name: Build
-      run: cargo +beta build --verbose
+      run: cargo build --verbose
     - name: Run Unit Tests
-      run: cargo +beta test --lib --verbose
+      run: cargo test --lib --verbose
       env:
         RAYSTACK_SKYSPARK_PROJECT_API_URL: ${{ secrets.RAYSTACK_SKYSPARK_PROJECT_API_URL }}
         RAYSTACK_SKYSPARK_USERNAME: ${{ secrets.RAYSTACK_SKYSPARK_USERNAME }}
         RAYSTACK_SKYSPARK_PASSWORD: ${{ secrets.RAYSTACK_SKYSPARK_PASSWORD }}
     - name: Run Doc Tests
-      run: cargo +beta test --doc --verbose
+      run: cargo test --doc --verbose
