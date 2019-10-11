@@ -20,9 +20,11 @@
 //!     ```rust,no_run
 //!     # async fn run() {
 //!     use raystack::{SkySparkClient, ValueExt};
+//!     use ring::rand::SystemRandom;
 //!     use url::Url;
+//!     let rng = SystemRandom::new();
 //!     let url = Url::parse("https://www.example.com/api/projName/").unwrap();
-//!     let client = SkySparkClient::new(url, "username", "p4ssw0rd", None).await.unwrap();
+//!     let client = SkySparkClient::new(url, "username", "p4ssw0rd", None, &rng).await.unwrap();
 //!     let sites_grid = client.eval("readAll(site)").await.unwrap();
 //!     
 //!     // Print the raw JSON:
@@ -81,9 +83,11 @@ impl SkySparkClient {
     /// ```rust,no_run
     /// # async fn run() {
     /// use raystack::SkySparkClient;
+    /// use ring::rand::SystemRandom;
     /// use url::Url;
+    /// let rng = SystemRandom::new();
     /// let url = Url::parse("https://skyspark.company.com/api/bigProject/").unwrap();
-    /// let client = SkySparkClient::new(url, "username", "p4ssw0rd", None).await.unwrap();
+    /// let client = SkySparkClient::new(url, "username", "p4ssw0rd", None, &rng).await.unwrap();
     /// # }
     /// ```
     pub async fn new(
@@ -91,6 +95,7 @@ impl SkySparkClient {
         username: &str,
         password: &str,
         timeout_in_seconds: Option<u64>,
+        rng: &ring::rand::SystemRandom,
     ) -> Result<Self> {
         use std::time::Duration;
 
@@ -112,6 +117,7 @@ impl SkySparkClient {
             auth_url.as_str(),
             username,
             password,
+            rng,
         )
         .await?;
 
@@ -400,7 +406,8 @@ mod test {
     async fn new_client() -> SkySparkClient {
         let username = username();
         let password = password();
-        SkySparkClient::new(project_api_url(), &username, &password, None)
+        let rng = ring::rand::SystemRandom::new();
+        SkySparkClient::new(project_api_url(), &username, &password, None, &rng)
             .await
             .unwrap()
     }

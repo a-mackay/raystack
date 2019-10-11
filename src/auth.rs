@@ -1,11 +1,7 @@
 use base64;
-use crypto::digest::Digest;
-use crypto::hmac::Hmac;
-use crypto::mac::Mac;
-use crypto::pbkdf2::pbkdf2;
-use crypto::sha2::{Sha256, Sha512};
-use rand::random;
 use reqwest::{Client, Response};
+use ring::{digest, hmac, pbkdf2};
+use std::num::NonZeroU32;
 use std::str::FromStr;
 use std::{convert::From, error, fmt};
 
@@ -29,19 +25,18 @@ impl FromStr for HashFunction {
 }
 
 impl HashFunction {
-    fn pbkdf2(&self, key: &[u8], salt: &[u8], iterations: u32) -> Vec<u8> {
-        let mut dk = vec![0u8; self.dk_len()];
-
-        match self {
-            HashFunction::Sha256 => {
-                let mut hmac = Hmac::new(Sha256::new(), key);
-                pbkdf2(&mut hmac, salt, iterations, &mut dk);
-            }
-            HashFunction::Sha512 => {
-                let mut hmac = Hmac::new(Sha512::new(), key);
-                pbkdf2(&mut hmac, salt, iterations, &mut dk);
-            }
+    fn pbkdf2(
+        &self,
+        key: &[u8],
+        salt: &[u8],
+        iterations: NonZeroU32,
+    ) -> Vec<u8> {
+        let algorithm = match self {
+            HashFunction::Sha256 => pbkdf2::PBKDF2_HMAC_SHA256,
+            HashFunction::Sha512 => pbkdf2::PBKDF2_HMAC_SHA512,
         };
+        let mut dk = vec![0u8; self.dk_len()];
+        pbkdf2::derive(algorithm, iterations, salt, key, &mut dk);
         dk
     }
 
@@ -53,42 +48,25 @@ impl HashFunction {
         }
     }
 
-    fn hmac(&self, key: &[u8], data: &[u8]) -> Vec<u8> {
-        let mac_result = match self {
-            HashFunction::Sha256 => {
-                let mut hmac = Hmac::new(Sha256::new(), key);
-                hmac.input(data);
-                hmac.result()
-            }
-            HashFunction::Sha512 => {
-                let mut hmac = Hmac::new(Sha512::new(), key);
-                hmac.input(data);
-                hmac.result()
-            }
+    /// See the documentation for hmac::Key::new for the restrictions on
+    /// `key_value`.
+    fn hmac_sign(&self, key_value: &[u8], data: &[u8]) -> hmac::Tag {
+        let algorithm = match self {
+            HashFunction::Sha256 => hmac::HMAC_SHA256,
+            HashFunction::Sha512 => hmac::HMAC_SHA512,
         };
-
-        // WARNING: Calls to code() may be vulnerable to timing attacks,
-        // see the documentation for that function for more details.
-        mac_result.code().into()
+        let key = hmac::Key::new(algorithm, key_value);
+        hmac::sign(&key, data)
     }
 
     fn digest(&self, input: &[u8]) -> Vec<u8> {
-        match self {
-            HashFunction::Sha256 => {
-                let mut sha = Sha256::new();
-                sha.input(input);
-                let mut digest = vec![0u8; sha.output_bytes()];
-                sha.result(&mut digest);
-                digest
-            }
-            HashFunction::Sha512 => {
-                let mut sha = Sha512::new();
-                sha.input(input);
-                let mut digest = vec![0u8; sha.output_bytes()];
-                sha.result(&mut digest);
-                digest
-            }
-        }
+        let algorithm = match self {
+            HashFunction::Sha256 => &digest::SHA256,
+            HashFunction::Sha512 => &digest::SHA512,
+        };
+
+        let digest_result = digest::digest(algorithm, input);
+        digest_result.as_ref().to_vec()
     }
 }
 
@@ -99,6 +77,7 @@ pub(crate) async fn new_auth_token(
     url: &str,
     username: &str,
     password: &str,
+    rng: &ring::rand::SystemRandom,
 ) -> Result<String> {
     let auth_session_cfg = auth_session_config(client, &url, username).await?;
 
@@ -107,7 +86,7 @@ pub(crate) async fn new_auth_token(
         hash_fn,
     } = auth_session_cfg;
 
-    let nonce = format!("{:x}", random::<i128>());
+    let nonce = generate_nonce(rng);
     let client_first_msg = format!("n={},r={}", username, nonce);
 
     let server_first_res = server_first_response(
@@ -124,6 +103,9 @@ pub(crate) async fn new_auth_token(
         server_nonce,
         server_salt,
     } = server_first_res;
+
+    let server_iterations = NonZeroU32::new(server_iterations)
+        .expect("should never receive iterations = 0 from the server");
 
     let salted_password = hash_fn.pbkdf2(
         password.as_bytes(),
@@ -161,6 +143,19 @@ pub(crate) async fn new_auth_token(
             kind: AuthErrorKind::ServerValidationError,
         })
     }
+}
+
+fn generate_nonce(rng: &dyn ring::rand::SecureRandom) -> String {
+    use std::fmt::Write;
+
+    let mut out = vec![0u8; 32];
+    rng.fill(&mut out)
+        .expect("TODO - artisanally designed errors");
+    let mut nonce = String::new();
+    for byte in out.iter() {
+        write!(&mut nonce, "{:x}", byte).expect("unable to write to string");
+    }
+    nonce
 }
 
 struct AuthSessionConfig {
@@ -247,9 +242,12 @@ async fn server_second_response(
     client_final_no_proof: &str,
     hash_fn: &HashFunction,
 ) -> Result<ServerSecondResponse> {
-    let client_key = hash_fn.hmac(&salted_password, b"Client Key");
+    let client_key_tag = hash_fn.hmac_sign(&salted_password, b"Client Key");
+    let client_key = client_key_tag.as_ref();
     let stored_key = hash_fn.digest(&client_key);
-    let client_signature = hash_fn.hmac(&stored_key, auth_msg.as_bytes());
+    let client_signature_tag =
+        hash_fn.hmac_sign(&stored_key, auth_msg.as_bytes());
+    let client_signature = client_signature_tag.as_ref();
 
     let client_proof: Vec<u8> = client_key
         .iter()
@@ -293,10 +291,13 @@ fn is_server_valid(
     server_signature: &str,
     hash_fn: &HashFunction,
 ) -> bool {
-    let computed_server_key = hash_fn.hmac(salted_password, b"Server Key");
-    let computed_server_signature =
-        hash_fn.hmac(&computed_server_key, auth_msg.as_bytes());
-    let computed_server_signature = base64::encode(&computed_server_signature);
+    let computed_server_key_tag =
+        hash_fn.hmac_sign(salted_password, b"Server Key");
+    let computed_server_key = computed_server_key_tag.as_ref();
+    let computed_server_signature_tag =
+        hash_fn.hmac_sign(computed_server_key, auth_msg.as_bytes());
+    let computed_server_signature = computed_server_signature_tag.as_ref();
+    let computed_server_signature = base64::encode(computed_server_signature);
 
     computed_server_signature == server_signature
 }
