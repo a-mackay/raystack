@@ -16,7 +16,7 @@ chrono-tz = "0.5"
 csv = "1.1"
 rand = "0.7"
 reqwest = { version = "0.10.0-alpha.1", features = ["json"] }
-rust-crypto = "0.2.36"
+ring = "0.16.9"
 serde_json = "1.0"
 url = "2.1"
 
