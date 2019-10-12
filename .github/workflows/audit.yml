@@ -2,7 +2,7 @@ name: audit
 
 on:
   schedule:
-    - cron: '0 0 * * Fri'
+    - cron: '5 0 * * Sat'
 
 jobs:
   audit:
