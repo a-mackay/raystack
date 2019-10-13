@@ -1,3 +1,5 @@
+use thiserror::Error;
+
 /// A Haystack Ref.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Ref(String);
@@ -122,7 +124,8 @@ impl std::convert::AsRef<str> for Ref {
 }
 
 /// An error indicating that a `Ref` could not be parsed.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+#[error("Could not parse a Ref from the string {unparsable_ref}")]
 pub struct ParseRefError {
     unparsable_ref: String,
 }
@@ -137,14 +140,6 @@ impl ParseRefError {
         ParseRefError { unparsable_ref: s }
     }
 }
-
-impl std::fmt::Display for ParseRefError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Could not parse Ref from string {}", self.unparsable_ref)
-    }
-}
-
-impl std::error::Error for ParseRefError {}
 
 #[cfg(test)]
 mod test {

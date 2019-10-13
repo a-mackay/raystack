@@ -64,6 +64,7 @@ use reqwest::Client as ReqwestClient;
 use serde_json::json;
 use std::convert::TryInto;
 pub use tag::{is_tag_name, ParseTagNameError, TagName};
+use thiserror::Error; // cargo build --offline
 use url::Url;
 pub use value_ext::ValueExt;
 

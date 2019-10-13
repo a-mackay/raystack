@@ -1,3 +1,5 @@
+use thiserror::Error;
+
 /// A Haystack tag name.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct TagName(String);
@@ -75,22 +77,11 @@ impl std::convert::AsRef<[u8]> for TagName {
 }
 
 /// An error indicating that a `TagName` could not be parsed.
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+#[error("Could not parse a tag name from the string {unparsable_tag_name}")]
 pub struct ParseTagNameError {
     unparsable_tag_name: String,
 }
-
-impl std::fmt::Display for ParseTagNameError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Could not parse tag name from string {}",
-            self.unparsable_tag_name
-        )
-    }
-}
-
-impl std::error::Error for ParseTagNameError {}
 
 #[cfg(test)]
 mod tests {

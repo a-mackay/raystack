@@ -1,12 +1,10 @@
 use base64;
 use reqwest::{Client, Response};
 use ring::{digest, hmac, pbkdf2};
+use std::convert::From;
 use std::num::NonZeroU32;
 use std::str::FromStr;
-use std::{convert::From, error, fmt};
-
-#[derive(Debug)]
-struct ParseHashFunctionError;
+use thiserror::Error;
 
 enum HashFunction {
     Sha256,
@@ -19,7 +17,7 @@ impl FromStr for HashFunction {
         match s {
             "SHA-256" => Ok(HashFunction::Sha256),
             "SHA-512" => Ok(HashFunction::Sha512),
-            _ => Err(ParseHashFunctionError),
+            _ => Err(ParseHashFunctionError { unparsable_hash: s.to_owned() }),
         }
     }
 }
@@ -70,7 +68,7 @@ impl HashFunction {
     }
 }
 
-type Result<T> = std::result::Result<T, AuthError>;
+type AuthResult<T> = std::result::Result<T, InternalAuthError>;
 
 pub(crate) async fn new_auth_token(
     client: &Client,
@@ -78,7 +76,7 @@ pub(crate) async fn new_auth_token(
     username: &str,
     password: &str,
     rng: &ring::rand::SystemRandom,
-) -> Result<String> {
+) -> AuthResult<String> {
     let auth_session_cfg = auth_session_config(client, &url, username).await?;
 
     let AuthSessionConfig {
@@ -86,7 +84,7 @@ pub(crate) async fn new_auth_token(
         hash_fn,
     } = auth_session_cfg;
 
-    let nonce = generate_nonce(rng);
+    let nonce = generate_nonce(rng).map_err(|err| HandshakeError::from(err))?;
     let client_first_msg = format!("n={},r={}", username, nonce);
 
     let server_first_res = server_first_response(
@@ -107,9 +105,13 @@ pub(crate) async fn new_auth_token(
     let server_iterations = NonZeroU32::new(server_iterations)
         .expect("should never receive iterations = 0 from the server");
 
+    let decoded_server_salt = base64::decode(&server_salt).map_err(|err| {
+        HandshakeError::from(Base64DecodeError { msg: format!("{}", err) })
+    })?;
+
     let salted_password = hash_fn.pbkdf2(
         password.as_bytes(),
-        &base64::decode(&server_salt)?,
+        &decoded_server_salt,
         server_iterations,
     );
 
@@ -139,21 +141,22 @@ pub(crate) async fn new_auth_token(
     {
         Ok(auth_token)
     } else {
-        Err(AuthError {
-            kind: AuthErrorKind::ServerValidationError,
-        })
+        Err(InternalAuthError::ServerValidationError)
     }
 }
 
-fn generate_nonce(rng: &dyn ring::rand::SecureRandom) -> String {
+fn generate_nonce(rng: &dyn ring::rand::SecureRandom) -> Result<String, GenerateNonceError> {
     use std::fmt::Write;
 
     let mut out = vec![0u8; 32];
-    rng.fill(&mut out)
-        .expect("TODO - artisanally designed errors");
+    rng.fill(&mut out).map_err(|err| {
+        GenerateNonceError { msg: format!("{}", err) }
+    })?;
     let mut nonce = String::new();
     for byte in out.iter() {
-        write!(&mut nonce, "{:x}", byte).expect("unable to write to string");
+        write!(&mut nonce, "{:x}", byte).map_err(|err| {
+            GenerateNonceError { msg: format!("{}", err) }
+        })?;
     }
     nonce
 }
@@ -167,7 +170,7 @@ async fn auth_session_config(
     client: &Client,
     url: &str,
     username: &str,
-) -> std::result::Result<AuthSessionConfig, AuthError> {
+) -> AuthResult<AuthSessionConfig> {
     let base64_username = base64_encode_no_padding(username);
     let auth_header_value = format!("HELLO username={}", base64_username);
     let res = client
@@ -178,7 +181,7 @@ async fn auth_session_config(
 
     let kvps = parse_key_value_pairs_from_header("www-authenticate", res)?;
     let handshake_token = kvps.get("handshakeToken")?;
-    let hash_fn = kvps.get("hash")?.parse::<HashFunction>()?;
+    let hash_fn = kvps.get("hash")?.parse::<HashFunction>().map_err(|err| HandshakeError::from(err))?;
 
     Ok(AuthSessionConfig {
         handshake_token,
@@ -198,7 +201,7 @@ async fn server_first_response(
     url: &str,
     handshake_token: &str,
     client_first_msg: &str,
-) -> Result<ServerFirstResponse> {
+) -> AuthResult<ServerFirstResponse> {
     let auth_header_value = format!(
         "SCRAM handshakeToken={}, data={}",
         handshake_token,
@@ -212,13 +215,14 @@ async fn server_first_response(
 
     let kvps = parse_key_value_pairs_from_header("www-authenticate", res)?;
     let data_base64 = kvps.get("data")?;
-    let data = base64_decode_no_padding(&data_base64)?;
+    let data = base64_decode_no_padding(&data_base64).map_err(|err| HandshakeError::from(err))?;
 
     let server_first_msg = data.clone();
     let data_kvps = parse_key_value_pairs(&data)?;
     let server_nonce = data_kvps.get("r")?;
     let server_salt = data_kvps.get("s")?;
-    let server_iterations: u32 = data_kvps.get("i")?.parse()?;
+    let server_iterations: u32 = data_kvps.get("i")?.parse()
+        .map_err(|err| HandshakeError::from(ParseIterationsError::from(err)))?;
 
     Ok(ServerFirstResponse {
         server_first_msg,
@@ -241,7 +245,7 @@ async fn server_second_response(
     salted_password: &[u8],
     client_final_no_proof: &str,
     hash_fn: &HashFunction,
-) -> Result<ServerSecondResponse> {
+) -> AuthResult<ServerSecondResponse> {
     let client_key_tag = hash_fn.hmac_sign(&salted_password, b"Client Key");
     let client_key = client_key_tag.as_ref();
     let stored_key = hash_fn.digest(&client_key);
@@ -276,7 +280,7 @@ async fn server_second_response(
         parse_key_value_pairs_from_header("authentication-info", res)?;
     let auth_token = auth_info.get("authToken")?;
     let data_base64 = auth_info.get("data")?;
-    let data = base64_decode_no_padding(&data_base64)?;
+    let data = base64_decode_no_padding(&data_base64).map_err(|err| HandshakeError::from(err))?;
     let server_signature = parse_key_value_pairs(&data)?.get("v")?;
 
     Ok(ServerSecondResponse {
@@ -305,19 +309,25 @@ fn is_server_valid(
 fn parse_key_value_pairs_from_header(
     header: &str,
     res: Response,
-) -> Result<KeyValuePairs> {
+) -> Result<KeyValuePairs, KeyValuePairParseError> {
     let header_value = res
         .headers()
         .get(header)
-        .ok_or_else(|| AuthError::new_missing_response_data(header))?;
-    let header_value_str = header_value.to_str()?;
+        .ok_or_else(|| {
+            let msg = format!("missing HTTP header {}", header);
+            KeyValuePairParseError { msg }
+        })?;
+    let header_value_str = header_value.to_str().map_err(|_| {
+        let msg = format!("could not convert HTTP header {} to a string", header);
+        KeyValuePairParseError { msg }
+    })?;
     parse_key_value_pairs(header_value_str)
 }
 
-fn parse_key_value_pairs(s: &str) -> Result<KeyValuePairs> {
+fn parse_key_value_pairs(s: &str) -> Result<KeyValuePairs, KeyValuePairParseError> {
     let delimiters = &[' ', ','][..];
 
-    let key_value_pairs: Result<Vec<_>> = s
+    let key_value_pairs: Result<Vec<_>, KeyValuePairParseError> = s
         .split(delimiters)
         .filter(|s| s.to_lowercase() != "scram" && !s.is_empty())
         .map(|s| {
@@ -329,11 +339,8 @@ fn parse_key_value_pairs(s: &str) -> Result<KeyValuePairs> {
                 let value = split.1.trim_start_matches('=').to_string();
                 Ok((key, value))
             } else {
-                let description =
-                    format!("No '=' symbol in key-value pair {}", s);
-                Err(AuthError {
-                    kind: AuthErrorKind::ParseError { description },
-                })
+                let msg = format!("No '=' symbol in key-value pair {}", s);
+                Err(KeyValuePairParseError { msg })
             }
         })
         .collect();
@@ -348,12 +355,15 @@ struct KeyValuePairs {
 }
 
 impl KeyValuePairs {
-    fn get(&self, key: &str) -> Result<String> {
+    fn get(&self, key: &str) -> Result<String, KeyValuePairParseError> {
         self.key_value_pairs
             .iter()
             .find(|(k, _v)| k == key)
             .map(|(_k, v)| v.clone())
-            .ok_or_else(|| AuthError::new_missing_response_data(key))
+            .ok_or_else(|| {
+                let msg = format!("missing key {} in key-value pairs", key);
+                KeyValuePairParseError { msg }
+            })
     }
 }
 
@@ -362,133 +372,103 @@ fn base64_encode_no_padding<T: ?Sized + AsRef<[u8]>>(s: &T) -> String {
     base64::encode_config(s, config)
 }
 
-fn base64_decode_no_padding(s: &str) -> Result<String> {
+fn base64_decode_no_padding(s: &str) -> Result<String, Base64DecodeError> {
     let config = base64::Config::new(base64::CharacterSet::Standard, false);
-    let bytes = base64::decode_config(s, config)?;
-    String::from_utf8(bytes).map_err(|e| e.into())
+    let bytes = base64::decode_config(s, config).map_err(|err| {
+        let msg = format!("{}", err);
+        Base64DecodeError { msg }
+    })?;
+    String::from_utf8(bytes).map_err(|err| {
+        let msg = format!("{}", err);
+        Base64DecodeError { msg }
+    })
+}
+
+#[derive(Debug, Error)]
+pub enum AuthError {
+    #[error("A HTTP client error occurred while authenticating: {0}")]
+    HttpClientError(#[source] reqwest::Error),
+    #[error("An internal error occurred while authenticating: {0}")]
+    InternalError(#[source] dyn std::error::Error + 'static),
+    #[error("Could not validate the identity of the server")]
+    ServerValidationError,
+}
+
+impl From<InternalAuthError> for AuthError {
+    fn from(err: InternalAuthError) -> Self {
+        match err {
+            InternalAuthError::AuthParseError(err) => AuthError::InternalError(err),
+            InternalAuthError::HttpClientError(err) => AuthError::HttpClientError(err),
+            InternalAuthError::ServerValidationError => AuthError::ServerValidationError,
+        }
+    }
 }
 
 /// An error that occurred during the authentication process.
-#[derive(Debug)]
-pub struct AuthError {
-    kind: AuthErrorKind,
-}
-
-impl AuthError {
-    pub(crate) fn kind(&self) -> &AuthErrorKind {
-        &self.kind
-    }
-
-    fn new_missing_response_data(data_description: &str) -> Self {
-        AuthError {
-            kind: AuthErrorKind::MissingResponseData {
-                data_description: data_description.to_owned(),
-            },
-        }
-    }
-}
-
-#[derive(Debug)]
-pub(crate) enum AuthErrorKind {
-    Base64DecodeError,
-    HeaderToStrError,
-    HttpError { err: reqwest::Error },
-    MissingResponseData { data_description: String },
-    ParseError { description: String },
+#[derive(Debug, Error)]
+pub(crate) enum InternalAuthError {
+    #[error("Error occured while authenticating with the server")]
+    AuthParseError(#[from] HandshakeError),
+    #[error("HTTP client error")]
+    HttpClientError(#[from] reqwest::Error),
+    #[error("Could not validate the identity of the server")]
     ServerValidationError,
-    Utf8DecodeError(std::string::FromUtf8Error),
 }
 
-impl fmt::Display for AuthError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let msg = match self.kind() {
-            AuthErrorKind::Base64DecodeError => {
-                "Could not decode base64".to_owned()
-            }
-            AuthErrorKind::HeaderToStrError => {
-                "Could not convert header to a string".to_owned()
-            }
-            AuthErrorKind::MissingResponseData { data_description } => format!(
-                "Response from server is missing some expected information: {}",
-                data_description
-            ),
-            AuthErrorKind::ParseError { description } => {
-                format!("Parsing error: {}", description)
-            }
-            AuthErrorKind::HttpError { err } => {
-                format!("HTTP library error: {}", err)
-            }
-            AuthErrorKind::ServerValidationError => {
-                "Could not validate the identity of the server".to_owned()
-            }
-            AuthErrorKind::Utf8DecodeError(_) => {
-                "Could not decode UTF8".to_owned()
-            }
-        };
-        write!(f, "Authorization error: {}", msg)
+#[derive(Debug, Error)]
+pub(crate) enum HandshakeError {
+    #[error("{0}")]
+    Base64DecodeError(#[from] Base64DecodeError),
+    #[error("{0}")]
+    GenerateNonceError(#[from] GenerateNonceError),
+    #[error("Could not convert a HTTP header to a string")]
+    HeaderToStrError(#[from] reqwest::header::ToStrError),
+    #[error("{0}")]
+    KeyValuePairParseError(#[from] KeyValuePairParseError),
+    #[error("{0}")]
+    ParseHashFunctionError(#[from] ParseHashFunctionError),
+    #[error("{0}")]
+    ParseIterationsError(#[from] ParseIterationsError),
+    #[error("Could not decode a string as UTF8")]
+    Utf8DecodeError(#[from] std::string::FromUtf8Error),
+}
+
+#[derive(Debug, Error)]
+#[error("Unsupported hash function")]
+struct ParseHashFunctionError {
+    unparsable_hash: String,
+}
+
+#[derive(Debug, Error)]
+#[error("Could not parse the iteration count as an integer")]
+struct ParseIterationsError(#[from] std::num::ParseIntError);
+
+#[derive(Debug, Error)]
+#[error("Could not parse key-value pair: {msg}")]
+struct KeyValuePairParseError {
+    msg: String
+}
+
+impl KeyValuePairParseError {
+    fn into_auth_error(self) -> InternalAuthError {
+        AuthError::from(HandshakeError::from(self))
     }
 }
 
-impl From<base64::DecodeError> for AuthError {
-    fn from(_: base64::DecodeError) -> Self {
-        AuthError {
-            kind: AuthErrorKind::Base64DecodeError,
-        }
+impl From<KeyValuePairParseError> for InternalAuthError {
+    fn from(err: KeyValuePairParseError) -> Self {
+        err.into_auth_error()
     }
 }
 
-impl From<std::string::FromUtf8Error> for AuthError {
-    fn from(error: std::string::FromUtf8Error) -> Self {
-        AuthError {
-            kind: AuthErrorKind::Utf8DecodeError(error),
-        }
-    }
+#[derive(Debug, Error)]
+#[error("Could not decode a base64-encoded string, cause: {msg}")]
+struct Base64DecodeError {
+    msg: String
 }
 
-impl From<reqwest::header::ToStrError> for AuthError {
-    fn from(_: reqwest::header::ToStrError) -> Self {
-        AuthError {
-            kind: AuthErrorKind::HeaderToStrError,
-        }
-    }
-}
-
-impl From<ParseHashFunctionError> for AuthError {
-    fn from(_: ParseHashFunctionError) -> Self {
-        let description = "Unknown hash function".to_owned();
-        AuthError {
-            kind: AuthErrorKind::ParseError { description },
-        }
-    }
-}
-
-impl From<std::num::ParseIntError> for AuthError {
-    fn from(_: std::num::ParseIntError) -> Self {
-        let description = "Could not parse integer".to_owned();
-        AuthError {
-            kind: AuthErrorKind::ParseError { description },
-        }
-    }
-}
-
-impl From<reqwest::Error> for AuthError {
-    fn from(error: reqwest::Error) -> Self {
-        AuthError {
-            kind: AuthErrorKind::HttpError { err: error },
-        }
-    }
-}
-
-impl error::Error for AuthError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self.kind() {
-            AuthErrorKind::Base64DecodeError => None,
-            AuthErrorKind::HeaderToStrError => None,
-            AuthErrorKind::HttpError { err } => Some(err),
-            AuthErrorKind::MissingResponseData { .. } => None,
-            AuthErrorKind::ParseError { .. } => None,
-            AuthErrorKind::ServerValidationError => None,
-            AuthErrorKind::Utf8DecodeError(err) => Some(err),
-        }
-    }
+#[derive(Debug, Error)]
+#[error("Could not generate a nonce, cause: {msg}")]
+struct GenerateNonceError {
+    msg: String
 }

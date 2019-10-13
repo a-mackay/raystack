@@ -1,4 +1,4 @@
-use crate::auth::AuthError;
+// use crate::auth::AuthError;
 use crate::grid::{Grid, ParseJsonGridError};
 
 /// Encapsulates all errors that can occur in this crate.
@@ -47,9 +47,9 @@ impl Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg = match self.kind() {
-            ErrorKind::Auth { err } => {
-                format!("Error while authenticating: {}", err)
-            }
+            // ErrorKind::Auth { err } => {
+            //     format!("Error while authenticating: {}", err)
+            // }
             ErrorKind::Csv { err } => format!("CSV error: {}", err),
             ErrorKind::Grid { err_grid } => {
                 let trace = err_grid
@@ -70,8 +70,8 @@ impl std::fmt::Display for Error {
 /// Describes the kinds of errors that can occur in this crate.
 #[derive(Debug)]
 pub enum ErrorKind {
-    /// An error which occurred during the authorization process.
-    Auth { err: AuthError },
+    // /// An error which occurred during the authorization process.
+    // Auth { err: AuthError },
     /// An error related to CSVs.
     Csv { err: csv::Error },
     /// The grid contained error information from the server.
@@ -90,7 +90,7 @@ pub enum ErrorKind {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self.kind() {
-            ErrorKind::Auth { err } => Some(err),
+            // ErrorKind::Auth { err } => Some(err),
             ErrorKind::Csv { err } => Some(err),
             ErrorKind::Grid { .. } => None,
             ErrorKind::Http { err } => Some(err),
@@ -100,11 +100,11 @@ impl std::error::Error for Error {
     }
 }
 
-impl From<AuthError> for Error {
-    fn from(err: AuthError) -> Self {
-        Error::new(ErrorKind::Auth { err })
-    }
-}
+// impl From<AuthError> for Error {
+//     fn from(err: AuthError) -> Self {
+//         Error::new(ErrorKind::Auth { err })
+//     }
+// }
 
 impl From<reqwest::Error> for Error {
     fn from(error: reqwest::Error) -> Self {

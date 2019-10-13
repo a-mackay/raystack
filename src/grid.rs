@@ -8,6 +8,7 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::iter::FromIterator;
+use thiserror::Error;
 
 /// A wrapper around a `serde_json::Value` which represents a Haystack Grid.
 /// Columns will always be sorted in alphabetical order.
@@ -587,7 +588,8 @@ impl std::convert::TryFrom<Value> for Grid {
 }
 
 /// Error denoting that a JSON value could not be parsed into a `Grid`.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+#[error("{msg}")]
 pub struct ParseJsonGridError {
     pub(crate) msg: String,
 }
@@ -595,14 +597,6 @@ pub struct ParseJsonGridError {
 impl ParseJsonGridError {
     fn new(msg: String) -> Self {
         ParseJsonGridError { msg }
-    }
-}
-
-impl std::error::Error for ParseJsonGridError {}
-
-impl std::fmt::Display for ParseJsonGridError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.msg)
     }
 }
 
