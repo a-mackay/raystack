@@ -56,7 +56,7 @@ pub use api::HisReadRange;
 use chrono::DateTime;
 use chrono_tz::Tz;
 pub use coord::Coord;
-pub use err::{Error, ErrorKind, NewSkySparkClientError};
+pub use err::{Error, NewSkySparkClientError};
 pub use grid::{Grid, ParseJsonGridError};
 pub use hsref::{ParseRefError, Ref};
 pub use number::{Number, ParseNumberError};
@@ -170,7 +170,7 @@ impl SkySparkClient {
         let grid: Grid = json.try_into()?;
 
         if grid.is_error() {
-            Err(Error::new(ErrorKind::Grid { err_grid: grid }))
+            Err(Error::Grid { err_grid: grid })
         } else {
             Ok(grid)
         }
