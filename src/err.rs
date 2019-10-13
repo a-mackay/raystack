@@ -31,10 +31,6 @@ impl Error {
         Error { kind }
     }
 
-    pub(crate) fn new_io(msg: String) -> Self {
-        Error::new(ErrorKind::Io { msg })
-    }
-
     /// Return the Haystack error grid encapsulated by this error, if this
     /// error was caused by a Haystack error grid.
     pub fn into_grid(self) -> Option<Grid> {
@@ -48,7 +44,6 @@ impl Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg = match self.kind() {
-            ErrorKind::Csv { err } => format!("CSV error: {}", err),
             ErrorKind::Grid { err_grid } => {
                 let trace = err_grid
                     .error_trace()
@@ -56,7 +51,6 @@ impl std::fmt::Display for Error {
                 format!("Error grid: {}", trace)
             }
             ErrorKind::Http { err } => format!("HTTP error: {}", err),
-            ErrorKind::Io { msg } => format!("IO error: {}", msg),
             ErrorKind::ParseJsonGrid { msg } => {
                 format!("Could not parse a grid from JSON: {}", msg)
             }
@@ -68,8 +62,6 @@ impl std::fmt::Display for Error {
 /// Describes the kinds of errors that can occur in this crate.
 #[derive(Debug)]
 pub enum ErrorKind {
-    /// An error related to CSVs.
-    Csv { err: csv::Error },
     /// The grid contained error information from the server.
     Grid {
         /// The grid which caused this error.
@@ -77,8 +69,6 @@ pub enum ErrorKind {
     },
     /// An error which originated from the underlying HTTP library.
     Http { err: reqwest::Error },
-    /// An IO error.
-    Io { msg: String },
     /// An error related to parsing a `Grid`.
     ParseJsonGrid { msg: String },
 }
@@ -86,10 +76,8 @@ pub enum ErrorKind {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self.kind() {
-            ErrorKind::Csv { err } => Some(err),
             ErrorKind::Grid { .. } => None,
             ErrorKind::Http { err } => Some(err),
-            ErrorKind::Io { .. } => None,
             ErrorKind::ParseJsonGrid { .. } => None,
         }
     }
@@ -107,12 +95,7 @@ impl From<ParseJsonGridError> for Error {
     }
 }
 
-impl From<csv::Error> for Error {
-    fn from(error: csv::Error) -> Self {
-        Error::new(ErrorKind::Csv { err: error })
-    }
-}
-
+/// Errors that can occur when creating a new `SkySparkClient`.
 #[derive(Debug, Error)]
 pub enum NewSkySparkClientError {
     /// An error which occurred during the authentication process.

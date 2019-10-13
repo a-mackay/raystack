@@ -483,7 +483,7 @@ impl Grid {
     pub fn to_csv_string_with_ordered_cols(
         &self,
         col_names: &[&str],
-    ) -> Result<String, crate::Error> {
+    ) -> Result<String, CsvError> {
         let mut writer = csv::Writer::from_writer(vec![]);
         writer.write_record(col_names)?;
 
@@ -508,9 +508,7 @@ impl Grid {
             Ok(bytes) => Ok(String::from_utf8(bytes)
                 .expect("Bytes should be UTF8 since all input was UTF8")),
             Err(err) => {
-                let io_err = err.error();
-                let msg = io_err.to_string();
-                Err(crate::Error::new_io(msg))
+                Err(CsvError::from(err))
             }
         }
     }
@@ -536,9 +534,17 @@ impl Grid {
     ///     "id,x,y\n1,2,3\n".to_string()
     /// );
     /// ```
-    pub fn to_csv_string(&self) -> Result<String, crate::Error> {
+    pub fn to_csv_string(&self) -> Result<String, CsvError> {
         self.to_csv_string_with_ordered_cols(&self.col_name_strs())
     }
+}
+
+#[derive(Debug, Error)]
+pub enum CsvError {
+    #[error("Error originating from the underlying CSV library: {0}")]
+    Internal(#[from] csv::Error),
+    #[error("Error consuming a CSV writer: {0}")]
+    Writer(#[from] csv::IntoInnerError<csv::Writer<Vec<u8>>>),
 }
 
 const MARKER_LITERAL: &str = "m:";
