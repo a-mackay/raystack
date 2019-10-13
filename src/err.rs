@@ -1,5 +1,6 @@
-// use crate::auth::AuthError;
+use crate::auth::AuthError;
 use crate::grid::{Grid, ParseJsonGridError};
+use thiserror::Error;
 
 /// Encapsulates all errors that can occur in this crate.
 #[derive(Debug)]
@@ -47,9 +48,6 @@ impl Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg = match self.kind() {
-            // ErrorKind::Auth { err } => {
-            //     format!("Error while authenticating: {}", err)
-            // }
             ErrorKind::Csv { err } => format!("CSV error: {}", err),
             ErrorKind::Grid { err_grid } => {
                 let trace = err_grid
@@ -70,8 +68,6 @@ impl std::fmt::Display for Error {
 /// Describes the kinds of errors that can occur in this crate.
 #[derive(Debug)]
 pub enum ErrorKind {
-    // /// An error which occurred during the authorization process.
-    // Auth { err: AuthError },
     /// An error related to CSVs.
     Csv { err: csv::Error },
     /// The grid contained error information from the server.
@@ -90,7 +86,6 @@ pub enum ErrorKind {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self.kind() {
-            // ErrorKind::Auth { err } => Some(err),
             ErrorKind::Csv { err } => Some(err),
             ErrorKind::Grid { .. } => None,
             ErrorKind::Http { err } => Some(err),
@@ -99,12 +94,6 @@ impl std::error::Error for Error {
         }
     }
 }
-
-// impl From<AuthError> for Error {
-//     fn from(err: AuthError) -> Self {
-//         Error::new(ErrorKind::Auth { err })
-//     }
-// }
 
 impl From<reqwest::Error> for Error {
     fn from(error: reqwest::Error) -> Self {
@@ -122,4 +111,14 @@ impl From<csv::Error> for Error {
     fn from(error: csv::Error) -> Self {
         Error::new(ErrorKind::Csv { err: error })
     }
+}
+
+#[derive(Debug, Error)]
+pub enum NewSkySparkClientError {
+    /// An error which occurred during the authentication process.
+    #[error("Error occurred during authentication: {0}")]
+    Auth(#[from] AuthError),
+    /// An error originating in the underlying HTTP client.
+    #[error("Error occurred in the underlying HTTP client: {0}")]
+    HttpClient(#[from] reqwest::Error),
 }

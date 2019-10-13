@@ -56,7 +56,7 @@ pub use api::HisReadRange;
 use chrono::DateTime;
 use chrono_tz::Tz;
 pub use coord::Coord;
-pub use err::{Error, ErrorKind};
+pub use err::{Error, ErrorKind, NewSkySparkClientError};
 pub use grid::{Grid, ParseJsonGridError};
 pub use hsref::{ParseRefError, Ref};
 pub use number::{Number, ParseNumberError};
@@ -97,7 +97,7 @@ impl SkySparkClient {
         password: &str,
         timeout_in_seconds: Option<u64>,
         rng: &ring::rand::SystemRandom,
-    ) -> Result<Self> {
+    ) -> std::result::Result<Self, NewSkySparkClientError> {
         use std::time::Duration;
 
         let project_api_url = add_backslash_if_necessary(project_api_url);
@@ -120,7 +120,7 @@ impl SkySparkClient {
             password,
             rng,
         )
-        .await?;
+        .await.map_err(crate::auth::AuthError::from)?;
 
         Ok(SkySparkClient {
             auth_token,

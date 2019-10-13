@@ -158,7 +158,7 @@ fn generate_nonce(rng: &dyn ring::rand::SecureRandom) -> Result<String, Generate
             GenerateNonceError { msg: format!("{}", err) }
         })?;
     }
-    nonce
+    Ok(nonce)
 }
 
 struct AuthSessionConfig {
@@ -389,7 +389,7 @@ pub enum AuthError {
     #[error("A HTTP client error occurred while authenticating: {0}")]
     HttpClientError(#[source] reqwest::Error),
     #[error("An internal error occurred while authenticating: {0}")]
-    InternalError(#[source] dyn std::error::Error + 'static),
+    InternalError(#[source] Box<dyn std::error::Error + 'static>),
     #[error("Could not validate the identity of the server")]
     ServerValidationError,
 }
@@ -397,7 +397,7 @@ pub enum AuthError {
 impl From<InternalAuthError> for AuthError {
     fn from(err: InternalAuthError) -> Self {
         match err {
-            InternalAuthError::AuthParseError(err) => AuthError::InternalError(err),
+            InternalAuthError::AuthParseError(err) => AuthError::InternalError(Box::new(err)),
             InternalAuthError::HttpClientError(err) => AuthError::HttpClientError(err),
             InternalAuthError::ServerValidationError => AuthError::ServerValidationError,
         }
@@ -435,23 +435,23 @@ pub(crate) enum HandshakeError {
 
 #[derive(Debug, Error)]
 #[error("Unsupported hash function")]
-struct ParseHashFunctionError {
+pub(crate) struct ParseHashFunctionError {
     unparsable_hash: String,
 }
 
 #[derive(Debug, Error)]
 #[error("Could not parse the iteration count as an integer")]
-struct ParseIterationsError(#[from] std::num::ParseIntError);
+pub(crate) struct ParseIterationsError(#[from] std::num::ParseIntError);
 
 #[derive(Debug, Error)]
 #[error("Could not parse key-value pair: {msg}")]
-struct KeyValuePairParseError {
+pub(crate) struct KeyValuePairParseError {
     msg: String
 }
 
 impl KeyValuePairParseError {
     fn into_auth_error(self) -> InternalAuthError {
-        AuthError::from(HandshakeError::from(self))
+        InternalAuthError::from(HandshakeError::from(self))
     }
 }
 
@@ -463,12 +463,12 @@ impl From<KeyValuePairParseError> for InternalAuthError {
 
 #[derive(Debug, Error)]
 #[error("Could not decode a base64-encoded string, cause: {msg}")]
-struct Base64DecodeError {
+pub(crate) struct Base64DecodeError {
     msg: String
 }
 
 #[derive(Debug, Error)]
 #[error("Could not generate a nonce, cause: {msg}")]
-struct GenerateNonceError {
+pub(crate) struct GenerateNonceError {
     msg: String
 }
