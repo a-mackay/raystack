@@ -714,17 +714,16 @@ mod test {
 
     #[tokio::test]
     async fn error_grid() {
-        use crate::err::ErrorKind;
+        use crate::err::Error;
 
         let client = new_client().await;
         let grid_result = client.eval("reabDDDAll(test").await;
 
         assert!(grid_result.is_err());
         let err = grid_result.err().unwrap();
-        let kind = err.kind();
 
-        match kind {
-            ErrorKind::Grid { err_grid } => {
+        match err {
+            Error::Grid { err_grid } => {
                 assert!(err_grid.is_error());
                 assert!(err_grid.error_trace().is_some());
             }

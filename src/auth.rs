@@ -141,7 +141,7 @@ pub(crate) async fn new_auth_token(
     {
         Ok(auth_token)
     } else {
-        Err(InternalAuthError::ServerValidationError)
+        Err(InternalAuthError::ServerValidation)
     }
 }
 
@@ -384,22 +384,26 @@ fn base64_decode_no_padding(s: &str) -> Result<String, Base64DecodeError> {
     })
 }
 
+/// An error which occurred during the authentication process.
 #[derive(Debug, Error)]
 pub enum AuthError {
+    /// An error which occurred in the underlying HTTP client.
     #[error("A HTTP client error occurred while authenticating: {0}")]
-    HttpClientError(#[source] reqwest::Error),
+    Http(#[source] reqwest::Error),
+    /// An error occurred in `raystack` during authentication.
     #[error("An internal error occurred while authenticating: {0}")]
-    InternalError(#[source] Box<dyn std::error::Error + 'static>),
+    Internal(#[source] Box<dyn std::error::Error + 'static>),
+    /// Error denoting that the server's identity was not valid.
     #[error("Could not validate the identity of the server")]
-    ServerValidationError,
+    ServerValidation,
 }
 
 impl From<InternalAuthError> for AuthError {
     fn from(err: InternalAuthError) -> Self {
         match err {
-            InternalAuthError::AuthParseError(err) => AuthError::InternalError(Box::new(err)),
-            InternalAuthError::HttpClientError(err) => AuthError::HttpClientError(err),
-            InternalAuthError::ServerValidationError => AuthError::ServerValidationError,
+            InternalAuthError::Handshake(err) => AuthError::Internal(Box::new(err)),
+            InternalAuthError::Http(err) => AuthError::Http(err),
+            InternalAuthError::ServerValidation => AuthError::ServerValidation,
         }
     }
 }
@@ -408,29 +412,30 @@ impl From<InternalAuthError> for AuthError {
 #[derive(Debug, Error)]
 pub(crate) enum InternalAuthError {
     #[error("Error occured while authenticating with the server")]
-    AuthParseError(#[from] HandshakeError),
+    Handshake(#[from] HandshakeError),
     #[error("HTTP client error")]
-    HttpClientError(#[from] reqwest::Error),
+    Http(#[from] reqwest::Error),
     #[error("Could not validate the identity of the server")]
-    ServerValidationError,
+    ServerValidation,
 }
 
+/// An error that occurred during the authentication handshake.
 #[derive(Debug, Error)]
 pub(crate) enum HandshakeError {
     #[error("{0}")]
-    Base64DecodeError(#[from] Base64DecodeError),
+    Base64Decode(#[from] Base64DecodeError),
     #[error("{0}")]
-    GenerateNonceError(#[from] GenerateNonceError),
+    GenerateNonce(#[from] GenerateNonceError),
     #[error("Could not convert a HTTP header to a string")]
-    HeaderToStrError(#[from] reqwest::header::ToStrError),
+    HeaderToStr(#[from] reqwest::header::ToStrError),
     #[error("{0}")]
-    KeyValuePairParseError(#[from] KeyValuePairParseError),
+    KeyValuePairParse(#[from] KeyValuePairParseError),
     #[error("{0}")]
-    ParseHashFunctionError(#[from] ParseHashFunctionError),
+    ParseHashFunction(#[from] ParseHashFunctionError),
     #[error("{0}")]
-    ParseIterationsError(#[from] ParseIterationsError),
+    ParseIterations(#[from] ParseIterationsError),
     #[error("Could not decode a string as UTF8")]
-    Utf8DecodeError(#[from] std::string::FromUtf8Error),
+    Utf8Decode(#[from] std::string::FromUtf8Error),
 }
 
 #[derive(Debug, Error)]

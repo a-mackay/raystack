@@ -37,7 +37,7 @@ pub enum Error {
         err: reqwest::Error
     },
     #[error("Could not parse JSON as a Haystack grid: {msg}")]
-    /// An error related to parsing a `Grid`.
+    /// An error related to parsing a `Grid` from a JSON value.
     ParseJsonGrid { msg: String },
 }
 

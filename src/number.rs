@@ -71,6 +71,7 @@ impl std::fmt::Display for Number {
     }
 }
 
+/// Error denoting that a `Number` could not be parsed from a string.
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 #[error("Could not parse a Number from the string {unparsable_number}")]
 pub struct ParseNumberError {
