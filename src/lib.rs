@@ -120,7 +120,8 @@ impl SkySparkClient {
             password,
             rng,
         )
-        .await.map_err(crate::auth::AuthError::from)?;
+        .await
+        .map_err(crate::auth::AuthError::from)?;
 
         Ok(SkySparkClient {
             auth_token,

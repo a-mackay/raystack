@@ -34,7 +34,7 @@ pub enum Error {
     #[error("Error occurred in the underlying HTTP library: {err}")]
     Http {
         #[from]
-        err: reqwest::Error
+        err: reqwest::Error,
     },
     #[error("Could not parse JSON as a Haystack grid: {msg}")]
     /// An error related to parsing a `Grid` from a JSON value.

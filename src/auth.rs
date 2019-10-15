@@ -17,7 +17,9 @@ impl FromStr for HashFunction {
         match s {
             "SHA-256" => Ok(HashFunction::Sha256),
             "SHA-512" => Ok(HashFunction::Sha512),
-            _ => Err(ParseHashFunctionError { unparsable_hash: s.to_owned() }),
+            _ => Err(ParseHashFunctionError {
+                unparsable_hash: s.to_owned(),
+            }),
         }
     }
 }
@@ -84,7 +86,7 @@ pub(crate) async fn new_auth_token(
         hash_fn,
     } = auth_session_cfg;
 
-    let nonce = generate_nonce(rng).map_err(|err| HandshakeError::from(err))?;
+    let nonce = generate_nonce(rng).map_err(HandshakeError::from)?;
     let client_first_msg = format!("n={},r={}", username, nonce);
 
     let server_first_res = server_first_response(
@@ -106,7 +108,9 @@ pub(crate) async fn new_auth_token(
         .expect("should never receive iterations = 0 from the server");
 
     let decoded_server_salt = base64::decode(&server_salt).map_err(|err| {
-        HandshakeError::from(Base64DecodeError { msg: format!("{}", err) })
+        HandshakeError::from(Base64DecodeError {
+            msg: format!("{}", err),
+        })
     })?;
 
     let salted_password = hash_fn.pbkdf2(
@@ -145,17 +149,19 @@ pub(crate) async fn new_auth_token(
     }
 }
 
-fn generate_nonce(rng: &dyn ring::rand::SecureRandom) -> Result<String, GenerateNonceError> {
+fn generate_nonce(
+    rng: &dyn ring::rand::SecureRandom,
+) -> Result<String, GenerateNonceError> {
     use std::fmt::Write;
 
     let mut out = vec![0u8; 32];
-    rng.fill(&mut out).map_err(|err| {
-        GenerateNonceError { msg: format!("{}", err) }
+    rng.fill(&mut out).map_err(|err| GenerateNonceError {
+        msg: format!("{}", err),
     })?;
     let mut nonce = String::new();
     for byte in out.iter() {
-        write!(&mut nonce, "{:x}", byte).map_err(|err| {
-            GenerateNonceError { msg: format!("{}", err) }
+        write!(&mut nonce, "{:x}", byte).map_err(|err| GenerateNonceError {
+            msg: format!("{}", err),
         })?;
     }
     Ok(nonce)
@@ -181,7 +187,10 @@ async fn auth_session_config(
 
     let kvps = parse_key_value_pairs_from_header("www-authenticate", res)?;
     let handshake_token = kvps.get("handshakeToken")?;
-    let hash_fn = kvps.get("hash")?.parse::<HashFunction>().map_err(|err| HandshakeError::from(err))?;
+    let hash_fn = kvps
+        .get("hash")?
+        .parse::<HashFunction>()
+        .map_err(HandshakeError::from)?;
 
     Ok(AuthSessionConfig {
         handshake_token,
@@ -215,13 +224,16 @@ async fn server_first_response(
 
     let kvps = parse_key_value_pairs_from_header("www-authenticate", res)?;
     let data_base64 = kvps.get("data")?;
-    let data = base64_decode_no_padding(&data_base64).map_err(|err| HandshakeError::from(err))?;
+    let data =
+        base64_decode_no_padding(&data_base64).map_err(HandshakeError::from)?;
 
     let server_first_msg = data.clone();
     let data_kvps = parse_key_value_pairs(&data)?;
     let server_nonce = data_kvps.get("r")?;
     let server_salt = data_kvps.get("s")?;
-    let server_iterations: u32 = data_kvps.get("i")?.parse()
+    let server_iterations: u32 = data_kvps
+        .get("i")?
+        .parse()
         .map_err(|err| HandshakeError::from(ParseIterationsError::from(err)))?;
 
     Ok(ServerFirstResponse {
@@ -280,7 +292,8 @@ async fn server_second_response(
         parse_key_value_pairs_from_header("authentication-info", res)?;
     let auth_token = auth_info.get("authToken")?;
     let data_base64 = auth_info.get("data")?;
-    let data = base64_decode_no_padding(&data_base64).map_err(|err| HandshakeError::from(err))?;
+    let data =
+        base64_decode_no_padding(&data_base64).map_err(HandshakeError::from)?;
     let server_signature = parse_key_value_pairs(&data)?.get("v")?;
 
     Ok(ServerSecondResponse {
@@ -310,21 +323,21 @@ fn parse_key_value_pairs_from_header(
     header: &str,
     res: Response,
 ) -> Result<KeyValuePairs, KeyValuePairParseError> {
-    let header_value = res
-        .headers()
-        .get(header)
-        .ok_or_else(|| {
-            let msg = format!("missing HTTP header {}", header);
-            KeyValuePairParseError { msg }
-        })?;
+    let header_value = res.headers().get(header).ok_or_else(|| {
+        let msg = format!("missing HTTP header {}", header);
+        KeyValuePairParseError { msg }
+    })?;
     let header_value_str = header_value.to_str().map_err(|_| {
-        let msg = format!("could not convert HTTP header {} to a string", header);
+        let msg =
+            format!("could not convert HTTP header {} to a string", header);
         KeyValuePairParseError { msg }
     })?;
     parse_key_value_pairs(header_value_str)
 }
 
-fn parse_key_value_pairs(s: &str) -> Result<KeyValuePairs, KeyValuePairParseError> {
+fn parse_key_value_pairs(
+    s: &str,
+) -> Result<KeyValuePairs, KeyValuePairParseError> {
     let delimiters = &[' ', ','][..];
 
     let key_value_pairs: Result<Vec<_>, KeyValuePairParseError> = s
@@ -401,7 +414,9 @@ pub enum AuthError {
 impl From<InternalAuthError> for AuthError {
     fn from(err: InternalAuthError) -> Self {
         match err {
-            InternalAuthError::Handshake(err) => AuthError::Internal(Box::new(err)),
+            InternalAuthError::Handshake(err) => {
+                AuthError::Internal(Box::new(err))
+            }
             InternalAuthError::Http(err) => AuthError::Http(err),
             InternalAuthError::ServerValidation => AuthError::ServerValidation,
         }
@@ -451,7 +466,7 @@ pub(crate) struct ParseIterationsError(#[from] std::num::ParseIntError);
 #[derive(Debug, Error)]
 #[error("Could not parse key-value pair: {msg}")]
 pub(crate) struct KeyValuePairParseError {
-    msg: String
+    msg: String,
 }
 
 impl KeyValuePairParseError {
@@ -469,11 +484,11 @@ impl From<KeyValuePairParseError> for InternalAuthError {
 #[derive(Debug, Error)]
 #[error("Could not decode a base64-encoded string, cause: {msg}")]
 pub(crate) struct Base64DecodeError {
-    msg: String
+    msg: String,
 }
 
 #[derive(Debug, Error)]
 #[error("Could not generate a nonce, cause: {msg}")]
 pub(crate) struct GenerateNonceError {
-    msg: String
+    msg: String,
 }

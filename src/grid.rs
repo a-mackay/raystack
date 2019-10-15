@@ -507,9 +507,7 @@ impl Grid {
         match writer.into_inner() {
             Ok(bytes) => Ok(String::from_utf8(bytes)
                 .expect("Bytes should be UTF8 since all input was UTF8")),
-            Err(err) => {
-                Err(CsvError::from(err))
-            }
+            Err(err) => Err(CsvError::from(Box::new(err))),
         }
     }
 
@@ -544,7 +542,7 @@ pub enum CsvError {
     #[error("Error originating from the underlying CSV library: {0}")]
     Internal(#[from] csv::Error),
     #[error("Error consuming a CSV writer: {0}")]
-    Writer(#[from] csv::IntoInnerError<csv::Writer<Vec<u8>>>),
+    Writer(#[from] Box<csv::IntoInnerError<csv::Writer<Vec<u8>>>>),
 }
 
 const MARKER_LITERAL: &str = "m:";
