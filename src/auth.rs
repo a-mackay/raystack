@@ -405,7 +405,7 @@ pub enum AuthError {
     Http(#[source] reqwest::Error),
     /// An error occurred in `raystack` during authentication.
     #[error("An internal error occurred while authenticating: {0}")]
-    Internal(#[source] Box<dyn std::error::Error + 'static>),
+    Internal(#[source] Box<dyn std::error::Error + Send + Sync + 'static>),
     /// Error denoting that the server's identity was not valid.
     #[error("Could not validate the identity of the server")]
     ServerValidation,
