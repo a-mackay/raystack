@@ -11,6 +11,15 @@ impl Error {
         }
     }
 
+    /// Return a reference to the Haystack error grid encapsulated by this
+    /// error, if this error was caused by a Haystack error grid.
+    pub fn grid(&self) -> Option<&Grid> {
+        match self {
+            Self::Grid { err_grid } => Some(err_grid),
+            _ => None,
+        }
+    }
+
     /// Return the Haystack error grid encapsulated by this error, if this
     /// error was caused by a Haystack error grid.
     pub fn into_grid(self) -> Option<Grid> {
