@@ -45,15 +45,9 @@ pub enum Error {
         #[from]
         err: reqwest::Error,
     },
-    #[error("Could not parse JSON as a Haystack grid: {msg}")]
+    #[error("Could not parse JSON as a Haystack grid: {0}")]
     /// An error related to parsing a `Grid` from a JSON value.
-    ParseJsonGrid { msg: String },
-}
-
-impl From<ParseJsonGridError> for Error {
-    fn from(error: ParseJsonGridError) -> Self {
-        Error::ParseJsonGrid { msg: error.msg }
-    }
+    ParseJsonGrid(#[from] ParseJsonGridError),
 }
 
 /// Errors that can occur when creating a new `SkySparkClient`.
