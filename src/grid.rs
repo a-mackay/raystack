@@ -452,7 +452,8 @@ impl Grid {
 
     /// Return the error trace if present.
     pub fn error_trace(&self) -> Option<String> {
-        self.meta()["errTrace"].as_str().map(|s| s.to_owned())
+        use crate::ValueExt;
+        self.meta()["errTrace"].as_hs_str().map(|s| s.to_owned())
     }
 
     /// Return a string containing a CSV representation of the grid.
