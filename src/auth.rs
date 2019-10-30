@@ -145,7 +145,9 @@ pub(crate) async fn new_auth_token(
     {
         Ok(auth_token)
     } else {
-        Err(InternalAuthError::ServerValidation { server_id: url.into() })
+        Err(InternalAuthError::ServerValidation {
+            server_id: url.into(),
+        })
     }
 }
 
@@ -408,9 +410,7 @@ pub enum AuthError {
     Internal(#[source] Box<dyn std::error::Error + Send + Sync + 'static>),
     /// Error denoting that the server's identity was not valid.
     #[error("Could not validate the identity of the server {server_id}")]
-    ServerValidation {
-        server_id: String,
-    },
+    ServerValidation { server_id: String },
 }
 
 impl From<InternalAuthError> for AuthError {
@@ -420,7 +420,9 @@ impl From<InternalAuthError> for AuthError {
                 AuthError::Internal(Box::new(err))
             }
             InternalAuthError::Http(err) => AuthError::Http(err),
-            InternalAuthError::ServerValidation {server_id } => AuthError::ServerValidation { server_id },
+            InternalAuthError::ServerValidation { server_id } => {
+                AuthError::ServerValidation { server_id }
+            }
         }
     }
 }
@@ -433,9 +435,7 @@ pub(crate) enum InternalAuthError {
     #[error("HTTP client error")]
     Http(#[from] reqwest::Error),
     #[error("Could not validate the identity of the server {server_id}")]
-    ServerValidation {
-        server_id: String,
-    },
+    ServerValidation { server_id: String },
 }
 
 /// An error that occurred during the authentication handshake.
