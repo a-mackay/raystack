@@ -102,6 +102,16 @@ impl SkySparkClient {
 
         let project_api_url = add_backslash_if_necessary(project_api_url);
 
+        if project_api_url.cannot_be_a_base() {
+            let url_err_msg = "the project API URL must be a valid base URL";
+            return Err(NewSkySparkClientError::url(url_err_msg));
+        }
+
+        if !has_valid_path_segments(&project_api_url) {
+            let url_err_msg = "URL must be formatted similarly to http://www.test.com/api/project/";
+            return Err(NewSkySparkClientError::url(url_err_msg));
+        }
+
         let client = if let Some(timeout) = timeout_in_seconds {
             ReqwestClient::builder()
                 .timeout(Duration::from_secs(timeout))
@@ -183,17 +193,16 @@ impl SkySparkClient {
             .expect("since url ends with '/' this should never fail")
     }
 
-    /// Return the project name for this client. If the url given to the
-    /// `SkySparkClient` was correct, then this function should return a
-    /// project name.
-    pub fn project_name(&self) -> Option<&str> {
-        let mut path_split =
-            self.project_api_url.path_segments()?.collect::<Vec<_>>();
-        match path_split.pop() {
-            Some("") => path_split.pop(), // If empty, get the second last element
-            last_elem @ Some(_) => last_elem,
-            None => None,
-        }
+    /// Return the project name for this client.
+    pub fn project_name(&self) -> &str {
+        // Since the URL is validated by the `SkySparkClient::new` function,
+        // the following code shouldn't panic:
+        self.project_api_url
+            .path_segments()
+            .expect("proj api url is a valid base URL so this shouldn't fail")
+            .skip(1)
+            .next()
+            .expect("since URL is valid, the project name should be present")
     }
 
     /// Return the project API url being used by this client.
@@ -380,6 +389,25 @@ impl SkySparkClient {
         let row = json!({ "expr": axon_expr });
         let req_grid = Grid::new_internal(vec![row]);
         self.post(self.eval_url(), &req_grid).await
+    }
+}
+
+/// Returns true if the given URL appears to have the correct path
+/// segments for a SkySpark API URL. The URL should end with a '/' character.
+fn has_valid_path_segments(project_api_url: &Url) -> bool {
+    if let Some(mut segments) = project_api_url.path_segments() {
+        let api_literal = segments.next();
+        let proj_name = segments.next();
+        let blank = segments.next();
+        let should_be_none = segments.next();
+
+        match (api_literal, proj_name, blank, should_be_none) {
+            (_, Some(""), _, _) => false,
+            (Some("api"), Some(_), Some(""), None) => true,
+            _ => false,
+        }
+    } else {
+        false
     }
 }
 
@@ -730,5 +758,30 @@ mod test {
             }
             _ => panic!(),
         }
+    }
+
+    #[tokio::test]
+    async fn project_name_works() {
+        let client = new_client().await;
+        assert!(client.project_name().ends_with("dev"));
+    }
+
+    #[test]
+    fn has_valid_path_segments() {
+        use super::has_valid_path_segments;
+
+        let good_url = Url::parse("http://www.test.com/api/proj/").unwrap();
+        assert!(has_valid_path_segments(&good_url));
+        let bad_url1 = Url::parse("http://www.test.com/api/proj").unwrap();
+        assert!(!has_valid_path_segments(&bad_url1));
+        let bad_url2 = Url::parse("http://www.test.com/api/").unwrap();
+        assert!(!has_valid_path_segments(&bad_url2));
+        let bad_url3 =
+            Url::parse("http://www.test.com/api/proj/extra").unwrap();
+        assert!(!has_valid_path_segments(&bad_url3));
+        let bad_url4 = Url::parse("http://www.test.com").unwrap();
+        assert!(!has_valid_path_segments(&bad_url4));
+        let bad_url5 = Url::parse("http://www.test.com/api//extra").unwrap();
+        assert!(!has_valid_path_segments(&bad_url5));
     }
 }

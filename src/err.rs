@@ -59,4 +59,13 @@ pub enum NewSkySparkClientError {
     /// An error originating in the underlying HTTP client.
     #[error("Error occurred in the underlying HTTP client: {0}")]
     HttpClient(#[from] reqwest::Error),
+    /// An error caused by an invalid SkySpark project url.
+    #[error("The SkySpark URL is invalid: {msg}")]
+    Url { msg: String },
+}
+
+impl NewSkySparkClientError {
+    pub(crate) fn url(msg: &str) -> Self {
+        NewSkySparkClientError::Url { msg: msg.into() }
+    }
 }
