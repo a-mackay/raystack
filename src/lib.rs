@@ -5,14 +5,13 @@
 //! (watch* operations, pointWrite and invokeAction).
 //!
 //! # Example Usage
-//! Put this in the main function in the `main.rs` file to create
+//! 1. Put this in the main function in the `main.rs` file to create
 //! and use a `SkySparkClient`:
 //!     ```rust,no_run
 //!     # async fn run() {
 //!     use raystack::{SkySparkClient, ValueExt};
 //!     use ring::rand::SystemRandom;
 //!     use url::Url;
-//!     
 //!     let rng = SystemRandom::new();
 //!     let url = Url::parse("https://www.example.com/api/projName/").unwrap();
 //!     let client = SkySparkClient::new(url, "username", "p4ssw0rd", None, &rng).await.unwrap();
