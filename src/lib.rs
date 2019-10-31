@@ -5,13 +5,14 @@
 //! (watch* operations, pointWrite and invokeAction).
 //!
 //! # Example Usage
-//! 1. Put this in the main function in the `main.rs` file to create
+//! Put this in the main function in the `main.rs` file to create
 //! and use a `SkySparkClient`:
 //!     ```rust,no_run
 //!     # async fn run() {
 //!     use raystack::{SkySparkClient, ValueExt};
 //!     use ring::rand::SystemRandom;
 //!     use url::Url;
+//!     
 //!     let rng = SystemRandom::new();
 //!     let url = Url::parse("https://www.example.com/api/projName/").unwrap();
 //!     let client = SkySparkClient::new(url, "username", "p4ssw0rd", None, &rng).await.unwrap();
@@ -25,6 +26,8 @@
 //!     println!("first site id: {:?}", sites_grid.rows()[0]["id"].as_hs_ref().unwrap());
 //!     # }
 //!     ```
+//! 
+//! See the `examples` folder for more usage examples.
 //!
 //! The Grid struct is a wrapper around the underlying JSON Value enum
 //! provided by the `serde_json` crate. See the
@@ -72,7 +75,10 @@ pub struct SkySparkClient {
 }
 
 impl SkySparkClient {
-    /// Create a new `SkySparkClient`.
+    /// Create a new `SkySparkClient`. We pass in the `SystemRandom`
+    /// struct because the `ring` crypto library recommends that an application
+    /// should create a single random number generator and use it for all
+    /// randomness generation.
     /// # Example
     /// ```rust,no_run
     /// # async fn run() {
