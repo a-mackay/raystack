@@ -4,17 +4,7 @@
 //! Some Haystack operations are not implemented
 //! (watch* operations, pointWrite and invokeAction).
 //!
-//! # Usage
-//! 1. Create a new rust project: ```cargo new --bin my_project```
-//! 1. Put these dependencies in your Cargo.toml:
-//!     ```toml
-//!     [dependencies]
-//!     chrono = "0.4.7"
-//!     chrono-tz = "0.5.1"
-//!     raystack = "0.5"
-//!     serde_json = "1.0.40"
-//!     url = "1.7.2"
-//!     ```
+//! # Example Usage
 //! 1. Put this in the main function in the `main.rs` file to create
 //! and use a `SkySparkClient`:
 //!     ```rust,no_run
@@ -40,6 +30,9 @@
 //! provided by the `serde_json` crate. See the
 //! [documentation for Value](https://docs.serde.rs/serde_json/enum.Value.html)
 //! for more information on how to query for data stored within it.
+//! 
+//! Additional functions for extracting Haystack values from the underlying
+//! JSON are found in this crate's `ValueExt` trait.
 
 mod api;
 pub mod auth;
