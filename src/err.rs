@@ -56,9 +56,6 @@ pub enum NewSkySparkClientError {
     /// An error which occurred during the authentication process.
     #[error("Error occurred during authentication: {0}")]
     Auth(#[from] AuthError),
-    /// An error originating in the underlying HTTP client.
-    #[error("Error occurred in the underlying HTTP client: {0}")]
-    HttpClient(#[from] reqwest::Error),
     /// An error caused by an invalid SkySpark project url.
     #[error("The SkySpark URL is invalid: {msg}")]
     Url { msg: String },
@@ -69,3 +66,8 @@ impl NewSkySparkClientError {
         NewSkySparkClientError::Url { msg: msg.into() }
     }
 }
+
+/// Errors that can occur when creating a new `ClientSeed`.
+#[derive(Debug, Error)]
+#[error("Could not create a new client seed")]
+pub struct NewClientSeedError(#[from] reqwest::Error);

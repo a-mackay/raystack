@@ -7,34 +7,34 @@
 //! # Example Usage
 //! Put this in the main function in the `main.rs` file to create
 //! and use a `SkySparkClient`:
-//! 
+//!
 //! ```rust,no_run
 //! # async fn run() {
-//! use raystack::{SkySparkClient, ValueExt};
-//! use ring::rand::SystemRandom;
+//! use raystack::{ClientSeed, SkySparkClient, ValueExt};
 //! use url::Url;
-//! 
-//! let rng = SystemRandom::new();
+//!
+//! let timeout_in_seconds = 30;
+//! let client_seed = ClientSeed::new(timeout_in_seconds).unwrap();
 //! let url = Url::parse("https://www.example.com/api/projName/").unwrap();
-//! let client = SkySparkClient::new(url, "username", "p4ssw0rd", None, &rng).await.unwrap();
+//! let client = SkySparkClient::new(url, "username", "p4ssw0rd", client_seed).await.unwrap();
 //! let sites_grid = client.eval("readAll(site)").await.unwrap();
-//! 
+//!
 //! // Print the raw JSON:
 //! println!("{}", sites_grid.to_json_string_pretty());
-//! 
+//!
 //! // Working with the Grid struct:
 //! println!("All columns: {:?}", sites_grid.cols());
 //! println!("first site id: {:?}", sites_grid.rows()[0]["id"].as_hs_ref().unwrap());
 //! # }
 //! ```
-//! 
+//!
 //! See the `examples` folder for more usage examples.
 //!
 //! The Grid struct is a wrapper around the underlying JSON Value enum
 //! provided by the `serde_json` crate. See the
 //! [documentation for Value](https://docs.serde.rs/serde_json/enum.Value.html)
 //! for more information on how to query for data stored within it.
-//! 
+//!
 //! Additional functions for extracting Haystack values from the underlying
 //! JSON are found in this crate's `ValueExt` trait.
 
@@ -53,7 +53,7 @@ pub use api::HisReadRange;
 use chrono::DateTime;
 use chrono_tz::Tz;
 pub use coord::Coord;
-pub use err::{Error, NewSkySparkClientError};
+pub use err::{Error, NewClientSeedError, NewSkySparkClientError};
 pub use grid::{Grid, ParseJsonGridError};
 pub use hsref::{ParseRefError, Ref};
 pub use number::{Number, ParseNumberError};
@@ -66,40 +66,94 @@ use url::Url;
 pub use value_ext::ValueExt;
 
 type Result<T> = std::result::Result<T, Error>;
+type StdResult<T, E> = std::result::Result<T, E>;
+
+/// Contains resources used by a `SkySparkClient`. If creating multiple
+/// `SkySparkClient`s, the same `ClientSeed` should be reused for each,
+/// by calling the `.clone()` method.
+#[derive(Clone, Debug)]
+pub struct ClientSeed {
+    client: ReqwestClient,
+    rng: ring::rand::SystemRandom,
+}
+
+impl ClientSeed {
+    /// Create a new `ClientSeed`. The timeout determines how long the
+    /// underlying HTTP library will wait before timing out.
+    pub fn new(
+        timeout_in_seconds: u64,
+    ) -> StdResult<Self, NewClientSeedError> {
+        use std::time::Duration;
+
+        let client = ReqwestClient::builder()
+            .timeout(Duration::from_secs(timeout_in_seconds))
+            .build()?;
+
+        Ok(Self {
+            client,
+            rng: ring::rand::SystemRandom::new(),
+        })
+    }
+
+    fn client(&self) -> &reqwest::Client {
+        &self.client
+    }
+
+    fn rng(&self) -> &ring::rand::SystemRandom {
+        &self.rng
+    }
+}
 
 /// A client for interacting with a SkySpark server.
 #[derive(Debug)]
 pub struct SkySparkClient {
     auth_token: String,
-    client: ReqwestClient,
+    client_seed: ClientSeed,
     project_api_url: Url,
 }
 
 impl SkySparkClient {
-    /// Create a new `SkySparkClient`. We pass in the `SystemRandom`
-    /// struct because the `ring` crypto library recommends that an application
-    /// should create a single random number generator and use it for all
-    /// randomness generation.
+    /// Create a new `SkySparkClient`.
+    /// 
     /// # Example
     /// ```rust,no_run
     /// # async fn run() {
-    /// use raystack::SkySparkClient;
-    /// use ring::rand::SystemRandom;
+    /// use raystack::{ClientSeed, SkySparkClient};
     /// use url::Url;
-    /// let rng = SystemRandom::new();
+    /// let timeout_in_seconds = 30;
+    /// let client_seed = ClientSeed::new(timeout_in_seconds).unwrap();
     /// let url = Url::parse("https://skyspark.company.com/api/bigProject/").unwrap();
-    /// let client = SkySparkClient::new(url, "username", "p4ssw0rd", None, &rng).await.unwrap();
+    /// let client = SkySparkClient::new(url, "username", "p4ssw0rd", client_seed).await.unwrap();
     /// # }
     /// ```
+    /// 
+    /// If creating multiple `SkySparkClient`s,
+    /// the same `ClientSeed` should be used for each. For example:
+    /// 
+    /// ```rust,no_run
+    /// # async fn run() {
+    /// use raystack::{ClientSeed, SkySparkClient};
+    /// use url::Url;
+    /// let client_seed = ClientSeed::new(30).unwrap();
+    /// let url1 = Url::parse("http://test.com/api/bigProject/").unwrap();
+    /// let client1 = SkySparkClient::new(url1, "name", "p4ssw0rd", client_seed.clone()).await.unwrap();
+    /// let url2 = Url::parse("http://test.com/api/smallProj/").unwrap();
+    /// let client2 = SkySparkClient::new(url2, "name", "p4ss", client_seed.clone()).await.unwrap();
+    /// # }
+    /// ```
+    /// 
+    /// We pass in the `ClientSeed`
+    /// struct because the underlying crypto library recommends that an
+    /// application should create a single random number generator and use
+    /// it for all randomness generation. Additionally, the underlying HTTP
+    /// library recommends using a single copy of its HTTP client. These two
+    /// resources are wrapped by this `ClientSeed` struct.
     pub async fn new(
         project_api_url: Url,
         username: &str,
         password: &str,
-        timeout_in_seconds: Option<u64>,
-        rng: &ring::rand::SystemRandom,
+        client_seed: ClientSeed,
     ) -> std::result::Result<Self, NewSkySparkClientError> {
-        use std::time::Duration;
-
         let project_api_url = add_backslash_if_necessary(project_api_url);
 
         if project_api_url.cannot_be_a_base() {
@@ -112,32 +166,28 @@ impl SkySparkClient {
             return Err(NewSkySparkClientError::url(url_err_msg));
         }
 
-        let client = if let Some(timeout) = timeout_in_seconds {
-            ReqwestClient::builder()
-                .timeout(Duration::from_secs(timeout))
-                .build()?
-        } else {
-            ReqwestClient::new()
-        };
-
         let mut auth_url = project_api_url.clone();
         auth_url.set_path("/ui");
 
         let auth_token = auth::new_auth_token(
-            &client,
+            client_seed.client(),
             auth_url.as_str(),
             username,
             password,
-            rng,
+            client_seed.rng(),
         )
         .await
         .map_err(crate::auth::AuthError::from)?;
 
         Ok(SkySparkClient {
             auth_token,
-            client,
+            client_seed,
             project_api_url,
         })
+    }
+
+    fn client(&self) -> &reqwest::Client {
+        self.client_seed.client()
     }
 
     fn auth_header_value(&self) -> String {
@@ -150,7 +200,7 @@ impl SkySparkClient {
 
     async fn get(&self, url: Url) -> Result<Grid> {
         let res: Result<reqwest::Response> = self
-            .client
+            .client()
             .get(url)
             .header("Accept", "application/json")
             .header("Authorization", self.auth_header_value())
@@ -163,7 +213,7 @@ impl SkySparkClient {
 
     async fn post(&self, url: Url, grid: &Grid) -> Result<Grid> {
         let res: Result<reqwest::Response> = self
-            .client
+            .client()
             .post(url)
             .header("Accept", "application/json")
             .header("Authorization", self.auth_header_value())
@@ -415,6 +465,7 @@ fn has_valid_path_segments(project_api_url: &Url) -> bool {
 mod test {
     use crate::api::HisReadRange;
     use crate::hsref::Ref;
+    use crate::ClientSeed;
     use crate::SkySparkClient;
     use serde_json::json;
     use url::Url;
@@ -436,8 +487,8 @@ mod test {
     async fn new_client() -> SkySparkClient {
         let username = username();
         let password = password();
-        let rng = ring::rand::SystemRandom::new();
-        SkySparkClient::new(project_api_url(), &username, &password, None, &rng)
+        let seed = ClientSeed::new(15).unwrap();
+        SkySparkClient::new(project_api_url(), &username, &password, seed)
             .await
             .unwrap()
     }
