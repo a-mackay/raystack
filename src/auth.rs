@@ -403,10 +403,10 @@ fn base64_decode_no_padding(s: &str) -> Result<String, Base64DecodeError> {
 #[derive(Debug, Error)]
 pub enum AuthError {
     /// An error which occurred in the underlying HTTP client.
-    #[error("A HTTP client error occurred while authenticating: {0}")]
+    #[error("A HTTP client error occurred while authenticating")]
     Http(#[source] reqwest::Error),
     /// An error occurred in `raystack` during authentication.
-    #[error("An internal error occurred while authenticating: {0}")]
+    #[error("An internal error occurred while authenticating")]
     Internal(#[source] Box<dyn std::error::Error + Send + Sync + 'static>),
     /// Error denoting that the server's identity was not valid.
     #[error("Could not validate the identity of the server {server_id}")]
@@ -441,17 +441,17 @@ pub(crate) enum InternalAuthError {
 /// An error that occurred during the authentication handshake.
 #[derive(Debug, Error)]
 pub(crate) enum HandshakeError {
-    #[error("{0}")]
+    #[error("Could not decode base64")]
     Base64Decode(#[from] Base64DecodeError),
-    #[error("{0}")]
+    #[error("Could not generate a nonce")]
     GenerateNonce(#[from] GenerateNonceError),
     #[error("Could not convert a HTTP header to a string")]
     HeaderToStr(#[from] reqwest::header::ToStrError),
-    #[error("{0}")]
+    #[error("Could not parse a key-value pair")]
     KeyValuePairParse(#[from] KeyValuePairParseError),
-    #[error("{0}")]
+    #[error("Could not parse the type of hash function")]
     ParseHashFunction(#[from] ParseHashFunctionError),
-    #[error("{0}")]
+    #[error("Could not parse iterations as an integer")]
     ParseIterations(#[from] ParseIterationsError),
     #[error("Could not decode a string as UTF8")]
     Utf8Decode(#[from] std::string::FromUtf8Error),

@@ -540,9 +540,9 @@ impl Grid {
 
 #[derive(Debug, Error)]
 pub enum CsvError {
-    #[error("Error originating from the underlying CSV library: {0}")]
+    #[error("Error originating from the underlying CSV library")]
     Internal(#[from] csv::Error),
-    #[error("Error consuming a CSV writer: {0}")]
+    #[error("Error consuming a CSV writer")]
     Writer(#[from] Box<csv::IntoInnerError<csv::Writer<Vec<u8>>>>),
 }
 

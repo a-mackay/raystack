@@ -40,12 +40,12 @@ pub enum Error {
         err_grid: Grid,
     },
     /// An error which originated from the underlying HTTP library.
-    #[error("Error occurred in the underlying HTTP library: {err}")]
+    #[error("Error occurred in the underlying HTTP library")]
     Http {
         #[from]
         err: reqwest::Error,
     },
-    #[error("Could not parse JSON as a Haystack grid: {0}")]
+    #[error("Could not parse JSON as a Haystack grid")]
     /// An error related to parsing a `Grid` from a JSON value.
     ParseJsonGrid(#[from] ParseJsonGridError),
 }
@@ -54,7 +54,7 @@ pub enum Error {
 #[derive(Debug, Error)]
 pub enum NewSkySparkClientError {
     /// An error which occurred during the authentication process.
-    #[error("Error occurred during authentication: {0}")]
+    #[error("Error occurred during authentication")]
     Auth(#[from] AuthError),
     /// An error caused by an invalid SkySpark project url.
     #[error("The SkySpark URL is invalid: {msg}")]

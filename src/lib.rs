@@ -80,9 +80,7 @@ pub struct ClientSeed {
 impl ClientSeed {
     /// Create a new `ClientSeed`. The timeout determines how long the
     /// underlying HTTP library will wait before timing out.
-    pub fn new(
-        timeout_in_seconds: u64,
-    ) -> StdResult<Self, NewClientSeedError> {
+    pub fn new(timeout_in_seconds: u64) -> StdResult<Self, NewClientSeedError> {
         use std::time::Duration;
 
         let client = ReqwestClient::builder()
@@ -114,7 +112,7 @@ pub struct SkySparkClient {
 
 impl SkySparkClient {
     /// Create a new `SkySparkClient`.
-    /// 
+    ///
     /// # Example
     /// ```rust,no_run
     /// # async fn run() {
@@ -126,10 +124,10 @@ impl SkySparkClient {
     /// let client = SkySparkClient::new(url, "username", "p4ssw0rd", client_seed).await.unwrap();
     /// # }
     /// ```
-    /// 
+    ///
     /// If creating multiple `SkySparkClient`s,
     /// the same `ClientSeed` should be used for each. For example:
-    /// 
+    ///
     /// ```rust,no_run
     /// # async fn run() {
     /// use raystack::{ClientSeed, SkySparkClient};
@@ -141,7 +139,7 @@ impl SkySparkClient {
     /// let client2 = SkySparkClient::new(url2, "name", "p4ss", client_seed.clone()).await.unwrap();
     /// # }
     /// ```
-    /// 
+    ///
     /// We pass in the `ClientSeed`
     /// struct because the underlying crypto library recommends that an
     /// application should create a single random number generator and use
