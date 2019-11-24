@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // for each `SkySparkClient`:
     let client_seed = ClientSeed::new(timeout_in_seconds)?;
 
-    let client =
+    let mut client =
         SkySparkClient::new(url, "username", "p4ssw0rd", client_seed).await?;
 
     let sites_grid = client.eval("readAll(site)").await?;

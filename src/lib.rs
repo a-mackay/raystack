@@ -16,7 +16,7 @@
 //! let timeout_in_seconds = 30;
 //! let client_seed = ClientSeed::new(timeout_in_seconds).unwrap();
 //! let url = Url::parse("https://www.example.com/api/projName/").unwrap();
-//! let client = SkySparkClient::new(url, "username", "p4ssw0rd", client_seed).await.unwrap();
+//! let mut client = SkySparkClient::new(url, "username", "p4ssw0rd", client_seed).await.unwrap();
 //! let sites_grid = client.eval("readAll(site)").await.unwrap();
 //!
 //! // Print the raw JSON:
@@ -102,11 +102,29 @@ impl ClientSeed {
     }
 }
 
+async fn new_auth_token(project_api_url: &Url, client_seed: &ClientSeed, username: &str, password: &str) -> StdResult<String, crate::auth::AuthError> {
+    let mut auth_url = project_api_url.clone();
+    auth_url.set_path("/ui");
+
+    let auth_token = auth::new_auth_token(
+        client_seed.client(),
+        auth_url.as_str(),
+        username,
+        password,
+        client_seed.rng(),
+    )
+    .await?;
+
+    Ok(auth_token)
+}
+
 /// A client for interacting with a SkySpark server.
 #[derive(Debug)]
 pub struct SkySparkClient {
     auth_token: String,
     client_seed: ClientSeed,
+    username: String,
+    password: String,
     project_api_url: Url,
 }
 
@@ -121,7 +139,7 @@ impl SkySparkClient {
     /// let timeout_in_seconds = 30;
     /// let client_seed = ClientSeed::new(timeout_in_seconds).unwrap();
     /// let url = Url::parse("https://skyspark.company.com/api/bigProject/").unwrap();
-    /// let client = SkySparkClient::new(url, "username", "p4ssw0rd", client_seed).await.unwrap();
+    /// let mut client = SkySparkClient::new(url, "username", "p4ssw0rd", client_seed).await.unwrap();
     /// # }
     /// ```
     ///
@@ -164,24 +182,29 @@ impl SkySparkClient {
             return Err(NewSkySparkClientError::url(url_err_msg));
         }
 
-        let mut auth_url = project_api_url.clone();
-        auth_url.set_path("/ui");
-
-        let auth_token = auth::new_auth_token(
-            client_seed.client(),
-            auth_url.as_str(),
-            username,
-            password,
-            client_seed.rng(),
-        )
-        .await
-        .map_err(crate::auth::AuthError::from)?;
-
         Ok(SkySparkClient {
-            auth_token,
+            auth_token: new_auth_token(&project_api_url, &client_seed, username, password).await?,
             client_seed,
+            username: username.to_owned(),
+            password: password.to_owned(),
             project_api_url,
         })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_manually_set_auth_token(&mut self, auth_token: &str) {
+        self.auth_token = auth_token.to_owned();
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_auth_token(&self) -> &str {
+        &self.auth_token
+    }
+
+    async fn update_auth_token(&mut self) -> StdResult<(), crate::auth::AuthError> {
+        let auth_token = new_auth_token(self.project_api_url(), &self.client_seed, &self.username, &self.password).await?;
+        self.auth_token = auth_token;
+        Ok(())
     }
 
     fn client(&self) -> &reqwest::Client {
@@ -196,21 +219,43 @@ impl SkySparkClient {
         self.append_to_url("eval")
     }
 
-    async fn get(&self, url: Url) -> Result<Grid> {
-        let res: Result<reqwest::Response> = self
+    async fn get(&mut self, url: Url) -> Result<Grid> {
+        let res = self.get_response(url.clone()).await?;
+
+        if res.status() == reqwest::StatusCode::FORBIDDEN {
+            self.update_auth_token().await?;
+            let retry_res = self.get_response(url).await?;
+            Self::res_to_grid(retry_res).await
+        } else {
+            Self::res_to_grid(res).await
+        }
+    }
+
+    async fn get_response(&self, url: Url) -> Result<reqwest::Response> {
+        self
             .client()
             .get(url)
             .header("Accept", "application/json")
             .header("Authorization", self.auth_header_value())
             .send()
             .await
-            .map_err(|err| err.into());
-
-        Self::res_to_grid(res?).await
+            .map_err(|err| err.into())
     }
 
-    async fn post(&self, url: Url, grid: &Grid) -> Result<Grid> {
-        let res: Result<reqwest::Response> = self
+    async fn post(&mut self, url: Url, grid: &Grid) -> Result<Grid> {
+        let res = self.post_response(url.clone(), grid).await?;
+
+        if res.status() == reqwest::StatusCode::FORBIDDEN {
+            self.update_auth_token().await?;
+            let retry_res = self.post_response(url, grid).await?;
+            Self::res_to_grid(retry_res).await
+        } else {
+            Self::res_to_grid(res).await
+        }
+    }
+
+    async fn post_response(&self, url: Url, grid: &Grid) -> Result<reqwest::Response> {
+        self
             .client()
             .post(url)
             .header("Accept", "application/json")
@@ -219,9 +264,7 @@ impl SkySparkClient {
             .body(grid.to_json_string())
             .send()
             .await
-            .map_err(|err| err.into());
-
-        Self::res_to_grid(res?).await
+            .map_err(|err| err.into())
     }
 
     async fn res_to_grid(res: reqwest::Response) -> Result<Grid> {
@@ -273,16 +316,16 @@ fn add_backslash_if_necessary(url: Url) -> Url {
 }
 
 impl SkySparkClient {
-    pub async fn about(&self) -> Result<Grid> {
+    pub async fn about(&mut self) -> Result<Grid> {
         self.get(self.about_url()).await
     }
 
-    pub async fn formats(&self) -> Result<Grid> {
+    pub async fn formats(&mut self) -> Result<Grid> {
         self.get(self.formats_url()).await
     }
 
     pub async fn his_read(
-        &self,
+        &mut self,
         id: &Ref,
         range: &HisReadRange,
     ) -> Result<Grid> {
@@ -296,7 +339,7 @@ impl SkySparkClient {
     }
 
     pub async fn his_write_bool(
-        &self,
+        &mut self,
         id: &Ref,
         his_data: &[(DateTime<Tz>, bool)],
     ) -> Result<Grid> {
@@ -319,7 +362,7 @@ impl SkySparkClient {
     }
 
     pub async fn his_write_num(
-        &self,
+        &mut self,
         id: &Ref,
         his_data: &[(DateTime<Tz>, f64)],
         unit: &str,
@@ -343,7 +386,7 @@ impl SkySparkClient {
     }
 
     pub async fn his_write_str(
-        &self,
+        &mut self,
         id: &Ref,
         his_data: &[(DateTime<Tz>, String)],
     ) -> Result<Grid> {
@@ -365,7 +408,7 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
-    pub async fn nav(&self, nav_id: Option<&str>) -> Result<Grid> {
+    pub async fn nav(&mut self, nav_id: Option<&str>) -> Result<Grid> {
         let req_grid = match nav_id {
             Some(nav_id) => {
                 let row = json!({ "navId": nav_id });
@@ -377,11 +420,11 @@ impl SkySparkClient {
         self.post(self.nav_url(), &req_grid).await
     }
 
-    pub async fn ops(&self) -> Result<Grid> {
+    pub async fn ops(&mut self) -> Result<Grid> {
         self.get(self.ops_url()).await
     }
 
-    pub async fn read(&self, filter: &str, limit: Option<u64>) -> Result<Grid> {
+    pub async fn read(&mut self, filter: &str, limit: Option<u64>) -> Result<Grid> {
         let row = match limit {
             Some(integer) => json!({"filter": filter, "limit": integer}),
             None => json!({"filter": filter, "limit": "N"}),
@@ -391,7 +434,7 @@ impl SkySparkClient {
         self.post(self.read_url(), &req_grid).await
     }
 
-    pub async fn read_by_ids(&self, ids: &[Ref]) -> Result<Grid> {
+    pub async fn read_by_ids(&mut self, ids: &[Ref]) -> Result<Grid> {
         let rows = ids
             .iter()
             .map(|id| json!({"id": id.to_encoded_json_string()}))
@@ -433,7 +476,7 @@ impl HaystackUrl for SkySparkClient {
 }
 
 impl SkySparkClient {
-    pub async fn eval(&self, axon_expr: &str) -> Result<Grid> {
+    pub async fn eval(&mut self, axon_expr: &str) -> Result<Grid> {
         let row = json!({ "expr": axon_expr });
         let req_grid = Grid::new_internal(vec![row]);
         self.post(self.eval_url(), &req_grid).await
@@ -493,14 +536,14 @@ mod test {
 
     #[tokio::test]
     async fn about() {
-        let client = new_client().await;
+        let mut client = new_client().await;
         let grid = client.about().await.unwrap();
         assert_eq!(grid.rows()[0]["whoami"], json!(username()));
     }
 
     #[tokio::test]
     async fn formats() {
-        let client = new_client().await;
+        let mut client = new_client().await;
         let grid = client.formats().await.unwrap();
         assert!(grid.rows()[0]["dis"].is_string());
     }
@@ -573,7 +616,7 @@ mod test {
     async fn his_read(range: &HisReadRange) {
         let filter = format!("point and his and hisEnd");
 
-        let client = new_client().await;
+        let mut client = new_client().await;
         let points_grid = client.read(&filter, Some(1)).await.unwrap();
 
         let point_ref_str = points_grid.rows()[0]["id"].as_str().unwrap();
@@ -584,7 +627,7 @@ mod test {
         assert!(his_grid.meta()["hisEnd"].is_string());
     }
 
-    async fn get_ref_for_filter(client: &SkySparkClient, filter: &str) -> Ref {
+    async fn get_ref_for_filter(client: &mut SkySparkClient, filter: &str) -> Ref {
         let points_grid = client.read(filter, Some(1)).await.unwrap();
         let point_ref = points_grid.rows()[0]["id"]
             .as_str()
@@ -598,7 +641,7 @@ mod test {
         use chrono::{DateTime, Duration};
         use chrono_tz::Australia::Sydney;
 
-        let client = new_client().await;
+        let mut client = new_client().await;
 
         let date_time1 =
             DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
@@ -608,7 +651,7 @@ mod test {
         let date_time3 = date_time1 + Duration::minutes(10);
 
         let id = get_ref_for_filter(
-            &client,
+            &mut client,
             "continuousIntegrationHisWritePoint and kind == \"Bool\"",
         )
         .await;
@@ -631,10 +674,10 @@ mod test {
         let date_time2 = date_time1 + Duration::minutes(5);
         let date_time3 = date_time1 + Duration::minutes(10);
 
-        let client = new_client().await;
+        let mut client = new_client().await;
 
         let id = get_ref_for_filter(
-            &client,
+            &mut client,
             "continuousIntegrationHisWritePoint and kind == \"Number\"",
         )
         .await;
@@ -660,9 +703,9 @@ mod test {
         let date_time2 = date_time1 + Duration::minutes(5);
         let date_time3 = date_time1 + Duration::minutes(10);
 
-        let client = new_client().await;
+        let mut client = new_client().await;
         let id = get_ref_for_filter(
-            &client,
+            &mut client,
             "continuousIntegrationHisWritePoint and kind == \"Str\"",
         )
         .await;
@@ -679,14 +722,14 @@ mod test {
 
     #[tokio::test]
     async fn nav_root() {
-        let client = new_client().await;
+        let mut client = new_client().await;
         let grid = client.nav(None).await.unwrap();
         assert!(grid.rows()[0]["navId"].is_string());
     }
 
     #[tokio::test]
     async fn nav() {
-        let client = new_client().await;
+        let mut client = new_client().await;
         let root_grid = client.nav(None).await.unwrap();
         let child_nav_id = root_grid.rows()[0]["navId"].as_str().unwrap();
 
@@ -697,14 +740,14 @@ mod test {
 
     #[tokio::test]
     async fn ops() {
-        let client = new_client().await;
+        let mut client = new_client().await;
         let grid = client.ops().await.unwrap();
         assert!(grid.rows()[0]["name"].is_string());
     }
 
     #[tokio::test]
     async fn read_with_no_limit() {
-        let client = new_client().await;
+        let mut client = new_client().await;
         let grid = client.read("projMeta or uiMeta", None).await.unwrap();
 
         assert!(grid.rows()[0]["id"].is_string());
@@ -716,14 +759,14 @@ mod test {
 
     #[tokio::test]
     async fn read_with_zero_limit() {
-        let client = new_client().await;
+        let mut client = new_client().await;
         let grid = client.read("id", Some(0)).await.unwrap();
         assert_eq!(grid.rows().len(), 0);
     }
 
     #[tokio::test]
     async fn read_with_non_zero_limit() {
-        let client = new_client().await;
+        let mut client = new_client().await;
         let grid = client.read("id", Some(1)).await.unwrap();
         assert_eq!(grid.rows().len(), 1);
 
@@ -733,7 +776,7 @@ mod test {
 
     #[tokio::test]
     async fn read_by_ids_with_no_ids() {
-        let client = new_client().await;
+        let mut client = new_client().await;
         let ids = vec![];
         let grid_result = client.read_by_ids(&ids).await;
         assert!(grid_result.is_err());
@@ -741,7 +784,7 @@ mod test {
 
     #[tokio::test]
     async fn read_by_ids_single() {
-        let client = new_client().await;
+        let mut client = new_client().await;
         // Get some valid ids:
         let grid1 = client.read("id", Some(1)).await.unwrap();
         let raw_id1 = &grid1.rows()[0]["id"].as_str().unwrap();
@@ -753,7 +796,7 @@ mod test {
 
     #[tokio::test]
     async fn read_by_ids_multiple() {
-        let client = new_client().await;
+        let mut client = new_client().await;
         // Get some valid ids:
         let grid1 = client.read("id", Some(2)).await.unwrap();
         let raw_id1 = &grid1.rows()[0]["id"].as_str().unwrap();
@@ -768,7 +811,7 @@ mod test {
 
     #[tokio::test]
     async fn eval() {
-        let client = new_client().await;
+        let mut client = new_client().await;
         let axon_expr = "readAll(id and mod)[0..1].keepCols([\"id\", \"mod\"])";
         let grid = client.eval(axon_expr).await.unwrap();
         assert!(grid.rows()[0]["id"].is_string());
@@ -794,7 +837,7 @@ mod test {
     async fn error_grid() {
         use crate::err::Error;
 
-        let client = new_client().await;
+        let mut client = new_client().await;
         let grid_result = client.eval("reabDDDAll(test").await;
 
         assert!(grid_result.is_err());
@@ -832,5 +875,25 @@ mod test {
         assert!(!has_valid_path_segments(&bad_url4));
         let bad_url5 = Url::parse("http://www.test.com/api//extra").unwrap();
         assert!(!has_valid_path_segments(&bad_url5));
+    }
+
+    #[tokio::test]
+    async fn recovers_from_invalid_auth_token() {
+        let mut client = new_client().await;
+
+        let bad_token = "badauthtoken";
+
+        assert_ne!(client.test_auth_token(), bad_token);
+
+        // Check the client works before modifying the auth token:
+        let grid1 = client.about().await.unwrap();
+        assert_eq!(grid1.rows()[0]["whoami"], json!(username()));
+
+        client.test_manually_set_auth_token(bad_token);
+        assert_eq!(client.test_auth_token(), bad_token);
+
+        // Check the client still works after setting a bad auth token:
+        let grid2 = client.about().await.unwrap();
+        assert_eq!(grid2.rows()[0]["whoami"], json!(username()));
     }
 }

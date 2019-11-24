@@ -45,9 +45,13 @@ pub enum Error {
         #[from]
         err: reqwest::Error,
     },
-    #[error("Could not parse JSON as a Haystack grid")]
     /// An error related to parsing a `Grid` from a JSON value.
+    #[error("Could not parse JSON as a Haystack grid")]
     ParseJsonGrid(#[from] ParseJsonGridError),
+    /// An error occurred when trying to obtain a new auth token from
+    /// the server.
+    #[error("Could not obtain a new auth token from the server")]
+    UpdateAuthToken(#[from] crate::auth::AuthError),
 }
 
 /// Errors that can occur when creating a new `SkySparkClient`.
