@@ -102,7 +102,12 @@ impl ClientSeed {
     }
 }
 
-async fn new_auth_token(project_api_url: &Url, client_seed: &ClientSeed, username: &str, password: &str) -> StdResult<String, crate::auth::AuthError> {
+async fn new_auth_token(
+    project_api_url: &Url,
+    client_seed: &ClientSeed,
+    username: &str,
+    password: &str,
+) -> StdResult<String, crate::auth::AuthError> {
     let mut auth_url = project_api_url.clone();
     auth_url.set_path("/ui");
 
@@ -183,7 +188,13 @@ impl SkySparkClient {
         }
 
         Ok(SkySparkClient {
-            auth_token: new_auth_token(&project_api_url, &client_seed, username, password).await?,
+            auth_token: new_auth_token(
+                &project_api_url,
+                &client_seed,
+                username,
+                password,
+            )
+            .await?,
             client_seed,
             username: username.to_owned(),
             password: password.to_owned(),
@@ -201,8 +212,16 @@ impl SkySparkClient {
         &self.auth_token
     }
 
-    async fn update_auth_token(&mut self) -> StdResult<(), crate::auth::AuthError> {
-        let auth_token = new_auth_token(self.project_api_url(), &self.client_seed, &self.username, &self.password).await?;
+    async fn update_auth_token(
+        &mut self,
+    ) -> StdResult<(), crate::auth::AuthError> {
+        let auth_token = new_auth_token(
+            self.project_api_url(),
+            &self.client_seed,
+            &self.username,
+            &self.password,
+        )
+        .await?;
         self.auth_token = auth_token;
         Ok(())
     }
@@ -232,8 +251,7 @@ impl SkySparkClient {
     }
 
     async fn get_response(&self, url: Url) -> Result<reqwest::Response> {
-        self
-            .client()
+        self.client()
             .get(url)
             .header("Accept", "application/json")
             .header("Authorization", self.auth_header_value())
@@ -254,9 +272,12 @@ impl SkySparkClient {
         }
     }
 
-    async fn post_response(&self, url: Url, grid: &Grid) -> Result<reqwest::Response> {
-        self
-            .client()
+    async fn post_response(
+        &self,
+        url: Url,
+        grid: &Grid,
+    ) -> Result<reqwest::Response> {
+        self.client()
             .post(url)
             .header("Accept", "application/json")
             .header("Authorization", self.auth_header_value())
@@ -424,7 +445,11 @@ impl SkySparkClient {
         self.get(self.ops_url()).await
     }
 
-    pub async fn read(&mut self, filter: &str, limit: Option<u64>) -> Result<Grid> {
+    pub async fn read(
+        &mut self,
+        filter: &str,
+        limit: Option<u64>,
+    ) -> Result<Grid> {
         let row = match limit {
             Some(integer) => json!({"filter": filter, "limit": integer}),
             None => json!({"filter": filter, "limit": "N"}),
@@ -627,7 +652,10 @@ mod test {
         assert!(his_grid.meta()["hisEnd"].is_string());
     }
 
-    async fn get_ref_for_filter(client: &mut SkySparkClient, filter: &str) -> Ref {
+    async fn get_ref_for_filter(
+        client: &mut SkySparkClient,
+        filter: &str,
+    ) -> Ref {
         let points_grid = client.read(filter, Some(1)).await.unwrap();
         let point_ref = points_grid.rows()[0]["id"]
             .as_str()
