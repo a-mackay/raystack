@@ -7,19 +7,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Setup Rust Beta Toolchain
+    - uses: actions/checkout@v2
+
+    - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: beta
+        toolchain: stable
+        profile: minimal
         override: true
+
     - name: Build
-      run: cargo build --verbose
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --verbose
+
     - name: Run Unit Tests
-      run: cargo test --lib --verbose
       env:
         RAYSTACK_SKYSPARK_PROJECT_API_URL: ${{ secrets.RAYSTACK_SKYSPARK_PROJECT_API_URL }}
         RAYSTACK_SKYSPARK_USERNAME: ${{ secrets.RAYSTACK_SKYSPARK_USERNAME }}
         RAYSTACK_SKYSPARK_PASSWORD: ${{ secrets.RAYSTACK_SKYSPARK_PASSWORD }}
-    - name: Run Doc Tests
-      run: cargo test --doc --verbose
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --verbose
