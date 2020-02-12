@@ -312,8 +312,7 @@ impl SkySparkClient {
         self.project_api_url
             .path_segments()
             .expect("proj api url is a valid base URL so this shouldn't fail")
-            .skip(1)
-            .next()
+            .nth(1)
             .expect("since URL is valid, the project name should be present")
     }
 
