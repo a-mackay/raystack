@@ -283,6 +283,22 @@ impl Grid {
         }
     }
 
+    /// Modify the grid by applying the mapping function to each value in
+    /// the specified column.
+    pub fn map_col<F>(&mut self, col_name: &TagName, f: F)
+    where
+        F: Fn(&Value) -> Value,
+    {
+        for row_map in self.row_maps_mut() {
+            let col_name_str: &str = col_name.as_ref();
+            if row_map.contains_key(col_name_str) {
+                let current_value = row_map.get(col_name_str).expect("a value should be present since we checked the map contains the key");
+                let new_value = f(current_value);
+                row_map.insert(col_name_str.to_string(), new_value);
+            }
+        }
+    }
+
     /// Return a vector of JSON values which represent the rows of the grid.
     pub fn rows(&self) -> &Vec<Value> {
         &self.json["rows"].as_array().expect("rows is a JSON Array")
@@ -1006,5 +1022,51 @@ mod test {
         assert_eq!(grid.rows()[0]["one"].as_str().unwrap(), "a");
         assert_eq!(grid.rows()[1]["one"].as_str().unwrap(), "b");
         assert_eq!(grid.rows()[1]["two"].as_i64().unwrap(), 2);
+    }
+
+    #[test]
+    fn map_col_works() {
+        let rows = vec![
+            json!({"id": "a", "one": 1}),
+            json!({"one": "the id tag is missing"}),
+            json!({"id": "b", "one": 2})
+        ];
+        let mut grid = Grid::new(rows).unwrap();
+
+        let col_name = TagName::new("id".to_owned()).unwrap();
+
+        grid.map_col(&col_name, |_| {
+            serde_json::Value::Bool(true)
+        });
+
+        assert_eq!(grid.col_name_strs(), vec!["id", "one"]);
+        // Check the ID column has changed as expected:
+        assert_eq!(grid.rows()[0]["id"].as_bool().unwrap(), true);
+        assert_eq!(grid.rows()[1].as_object().unwrap().contains_key("id"), false);
+        assert_eq!(grid.rows()[2]["id"].as_bool().unwrap(), true);
+
+        // Check the other column has not changed:
+        assert_eq!(grid.rows()[0]["one"].as_i64().unwrap(), 1);
+        assert_eq!(grid.rows()[1]["one"].as_str().unwrap(), "the id tag is missing");
+        assert_eq!(grid.rows()[2]["one"].as_i64().unwrap(), 2);
+    }
+
+    #[test]
+    fn map_col_does_not_modify_grid_if_there_is_no_matching_col() {
+        let rows = vec![
+            json!({"id": "a"}),
+            json!({"id": "b"}),
+        ];
+        let mut grid = Grid::new(rows).unwrap();
+
+        let col_name = TagName::new("nonExistentCol".to_owned()).unwrap();
+
+        grid.map_col(&col_name, |_| {
+            serde_json::Value::Bool(true)
+        });
+
+        assert_eq!(grid.col_name_strs(), vec!["id"]);
+        assert_eq!(grid.rows()[0]["id"].as_str().unwrap(), "a");
+        assert_eq!(grid.rows()[1]["id"].as_str().unwrap(), "b");
     }
 }
