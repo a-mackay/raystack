@@ -93,6 +93,18 @@ impl ClientSeed {
         })
     }
 
+    /// Create a new `ClientSeed`. Use this method if sharing a
+    /// `reqwest::Client` throughout your program.
+    pub fn new_with_client(client: &ReqwestClient) -> Self {
+        // This will reuse the underlying HTTP client because
+        // `reqwest::Client` uses an `Arc` internally:
+        let client = client.clone();
+        Self {
+            client,
+            rng: ring::rand::SystemRandom::new(),
+        }
+    }
+
     fn client(&self) -> &reqwest::Client {
         &self.client
     }
