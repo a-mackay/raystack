@@ -42,6 +42,7 @@ mod api;
 pub mod auth;
 mod coord;
 mod err;
+pub mod eval;
 mod grid;
 mod hsref;
 mod number;
@@ -114,7 +115,7 @@ impl ClientSeed {
     }
 }
 
-async fn new_auth_token(
+pub(crate) async fn new_auth_token(
     project_api_url: &Url,
     client_seed: &ClientSeed,
     username: &str,
@@ -256,9 +257,9 @@ impl SkySparkClient {
         if res.status() == reqwest::StatusCode::FORBIDDEN {
             self.update_auth_token().await?;
             let retry_res = self.get_response(url).await?;
-            Self::res_to_grid(retry_res).await
+            http_response_to_grid(retry_res).await
         } else {
-            Self::res_to_grid(res).await
+            http_response_to_grid(res).await
         }
     }
 
@@ -278,9 +279,9 @@ impl SkySparkClient {
         if res.status() == reqwest::StatusCode::FORBIDDEN {
             self.update_auth_token().await?;
             let retry_res = self.post_response(url, grid).await?;
-            Self::res_to_grid(retry_res).await
+            http_response_to_grid(retry_res).await
         } else {
-            Self::res_to_grid(res).await
+            http_response_to_grid(res).await
         }
     }
 
@@ -298,17 +299,6 @@ impl SkySparkClient {
             .send()
             .await
             .map_err(|err| err.into())
-    }
-
-    async fn res_to_grid(res: reqwest::Response) -> Result<Grid> {
-        let json: serde_json::Value = res.json().await?;
-        let grid: Grid = json.try_into()?;
-
-        if grid.is_error() {
-            Err(Error::Grid { err_grid: grid })
-        } else {
-            Ok(grid)
-        }
     }
 
     fn append_to_url(&self, s: &str) -> Url {
@@ -337,7 +327,7 @@ impl SkySparkClient {
 /// If the given url ends with a backslash, return the url without
 /// any modifications. If the given url does not end with a backslash,
 /// append a backslash to the end and return a new `Url`.
-fn add_backslash_if_necessary(url: Url) -> Url {
+pub(crate) fn add_backslash_if_necessary(url: Url) -> Url {
     let chars = url.as_str().chars().collect::<Vec<_>>();
     let last_char = chars.last().expect("parsed url should have >= 1 chars");
     if *last_char != '/' {
@@ -519,9 +509,20 @@ impl SkySparkClient {
     }
 }
 
+pub(crate) async fn http_response_to_grid(res: reqwest::Response) -> Result<Grid> {
+    let json: serde_json::Value = res.json().await?;
+    let grid: Grid = json.try_into()?;
+
+    if grid.is_error() {
+        Err(Error::Grid { err_grid: grid })
+    } else {
+        Ok(grid)
+    }
+}
+
 /// Returns true if the given URL appears to have the correct path
 /// segments for a SkySpark API URL. The URL should end with a '/' character.
-fn has_valid_path_segments(project_api_url: &Url) -> bool {
+pub(crate) fn has_valid_path_segments(project_api_url: &Url) -> bool {
     if let Some(mut segments) = project_api_url.path_segments() {
         let api_literal = segments.next();
         let proj_name = segments.next();

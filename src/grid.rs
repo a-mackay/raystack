@@ -1029,41 +1029,40 @@ mod test {
         let rows = vec![
             json!({"id": "a", "one": 1}),
             json!({"one": "the id tag is missing"}),
-            json!({"id": "b", "one": 2})
+            json!({"id": "b", "one": 2}),
         ];
         let mut grid = Grid::new(rows).unwrap();
 
         let col_name = TagName::new("id".to_owned()).unwrap();
 
-        grid.map_col(&col_name, |_| {
-            serde_json::Value::Bool(true)
-        });
+        grid.map_col(&col_name, |_| serde_json::Value::Bool(true));
 
         assert_eq!(grid.col_name_strs(), vec!["id", "one"]);
         // Check the ID column has changed as expected:
         assert_eq!(grid.rows()[0]["id"].as_bool().unwrap(), true);
-        assert_eq!(grid.rows()[1].as_object().unwrap().contains_key("id"), false);
+        assert_eq!(
+            grid.rows()[1].as_object().unwrap().contains_key("id"),
+            false
+        );
         assert_eq!(grid.rows()[2]["id"].as_bool().unwrap(), true);
 
         // Check the other column has not changed:
         assert_eq!(grid.rows()[0]["one"].as_i64().unwrap(), 1);
-        assert_eq!(grid.rows()[1]["one"].as_str().unwrap(), "the id tag is missing");
+        assert_eq!(
+            grid.rows()[1]["one"].as_str().unwrap(),
+            "the id tag is missing"
+        );
         assert_eq!(grid.rows()[2]["one"].as_i64().unwrap(), 2);
     }
 
     #[test]
     fn map_col_does_not_modify_grid_if_there_is_no_matching_col() {
-        let rows = vec![
-            json!({"id": "a"}),
-            json!({"id": "b"}),
-        ];
+        let rows = vec![json!({"id": "a"}), json!({"id": "b"})];
         let mut grid = Grid::new(rows).unwrap();
 
         let col_name = TagName::new("nonExistentCol".to_owned()).unwrap();
 
-        grid.map_col(&col_name, |_| {
-            serde_json::Value::Bool(true)
-        });
+        grid.map_col(&col_name, |_| serde_json::Value::Bool(true));
 
         assert_eq!(grid.col_name_strs(), vec!["id"]);
         assert_eq!(grid.rows()[0]["id"].as_str().unwrap(), "a");
