@@ -387,16 +387,21 @@ impl SkySparkClient {
         &mut self,
         id: &Ref,
         his_data: &[(DateTime<Tz>, f64)],
-        unit: &str,
+        unit: Option<&str>,
     ) -> Result<Grid> {
         use api::to_zinc_encoded_string;
 
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
+                let value_string = match unit {
+                    Some(unit) => format!("n:{} {}", value, unit),
+                    None => format!("n:{}", value),
+                };
+
                 json!({
                     "ts": format!("t:{}", to_zinc_encoded_string(date_time)),
-                    "val": format!("n:{} {}", value, unit)
+                    "val": value_string
                 })
             })
             .collect();
@@ -718,14 +723,43 @@ mod test {
 
         let id = get_ref_for_filter(
             &mut client,
-            "continuousIntegrationHisWritePoint and kind == \"Number\"",
+            "continuousIntegrationHisWritePoint and kind == \"Number\" and unit",
         )
         .await;
         let his_data =
             vec![(date_time1, 10.0), (date_time2, 15.34), (date_time3, 1.234)];
 
         let res = client
-            .his_write_num(&id, &his_data[..], "L/s")
+            .his_write_num(&id, &his_data[..], Some("L/s"))
+            .await
+            .unwrap();
+        assert_eq!(res.rows().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn his_write_num_no_unit() {
+        use chrono::{DateTime, Duration};
+        use chrono_tz::Australia::Sydney;
+
+        let date_time1 =
+            DateTime::parse_from_rfc3339("2019-08-01T00:00:00+10:00")
+                .unwrap()
+                .with_timezone(&Sydney);
+        let date_time2 = date_time1 + Duration::minutes(5);
+        let date_time3 = date_time1 + Duration::minutes(10);
+
+        let mut client = new_client().await;
+
+        let id = get_ref_for_filter(
+            &mut client,
+            "continuousIntegrationHisWritePoint and kind == \"Number\" and not unit",
+        )
+        .await;
+        let his_data =
+            vec![(date_time1, 10.0), (date_time2, 15.34), (date_time3, 1.234)];
+
+        let res = client
+            .his_write_num(&id, &his_data[..], None)
             .await
             .unwrap();
         assert_eq!(res.rows().len(), 0);
