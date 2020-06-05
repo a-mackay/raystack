@@ -497,6 +497,7 @@ impl Grid {
     ///     "y,x,colWithNoValues\n3,2,\n".to_string()
     /// );
     /// ```
+    #[cfg(feature = "grid_csv")]
     pub fn to_csv_string_with_ordered_cols(
         &self,
         col_names: &[&str],
@@ -549,12 +550,14 @@ impl Grid {
     ///     "id,x,y\n1,2,3\n".to_string()
     /// );
     /// ```
+    #[cfg(feature = "grid_csv")]
     pub fn to_csv_string(&self) -> Result<String, CsvError> {
         self.to_csv_string_with_ordered_cols(&self.col_name_strs())
     }
 }
 
 #[derive(Debug, Error)]
+#[cfg(feature = "grid_csv")]
 pub enum CsvError {
     #[error("Error originating from the underlying CSV library")]
     Internal(#[from] csv::Error),
