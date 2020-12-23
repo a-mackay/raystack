@@ -1,5 +1,5 @@
-use crate::hsref::Ref;
-use crate::{is_tag_name, TagName};
+use raystack_core::Ref;
+use raystack_core::{is_tag_name, TagName};
 use serde_json::json;
 use serde_json::map::Map;
 use serde_json::Value;

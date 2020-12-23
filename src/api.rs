@@ -1,5 +1,5 @@
 use crate::grid::Grid;
-use crate::hsref::Ref;
+use raystack_core::Ref;
 use crate::Error;
 use chrono::{DateTime, NaiveDate, SecondsFormat};
 use chrono_tz::Tz;

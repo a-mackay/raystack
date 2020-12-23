@@ -1,4 +1,4 @@
-use crate::{Coord, Number, Ref};
+use raystack_core::{Coord, Number, Ref};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime};
 use serde_json::Value;
 

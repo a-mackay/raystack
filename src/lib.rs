@@ -40,28 +40,24 @@
 
 mod api;
 pub mod auth;
-mod coord;
 mod err;
 pub mod eval;
 mod grid;
-mod hsref;
-mod number;
-mod tag;
 mod value_ext;
 
 use api::HaystackUrl;
 pub use api::HisReadRange;
 use chrono::DateTime;
 use chrono_tz::Tz;
-pub use coord::Coord;
+pub use raystack_core::Coord;
 pub use err::{Error, NewClientSeedError, NewSkySparkClientError};
 pub use grid::{Grid, ParseJsonGridError};
-pub use hsref::{ParseRefError, Ref};
-pub use number::{Number, ParseNumberError};
+pub use raystack_core::{ParseRefError, Ref};
+pub use raystack_core::{Number, ParseNumberError};
 use reqwest::Client as ReqwestClient;
 use serde_json::json;
 use std::convert::TryInto;
-pub use tag::{is_tag_name, ParseTagNameError, TagName};
+pub use raystack_core::{is_tag_name, ParseTagNameError, TagName};
 use thiserror::Error;
 use url::Url;
 pub use value_ext::ValueExt;
@@ -547,7 +543,7 @@ pub(crate) fn has_valid_path_segments(project_api_url: &Url) -> bool {
 #[cfg(test)]
 mod test {
     use crate::api::HisReadRange;
-    use crate::hsref::Ref;
+    use raystack_core::Ref;
     use crate::ClientSeed;
     use crate::SkySparkClient;
     use serde_json::json;
@@ -933,7 +929,7 @@ mod test {
     }
 
     #[test]
-    fn has_valid_path_segments() {
+    fn has_valid_path_segments_works() {
         use super::has_valid_path_segments;
 
         let good_url = Url::parse("http://www.test.com/api/proj/").unwrap();
