@@ -180,10 +180,7 @@ impl ValueExt for Value {
 
     fn is_hs_marker(&self) -> bool {
         if let Some(s) = self.as_str() {
-            match haystack_type(s) {
-                JsonStringHaystackType::Marker => true,
-                _ => false,
-            }
+            matches!(haystack_type(s), JsonStringHaystackType::Marker)
         } else {
             false
         }
@@ -191,10 +188,7 @@ impl ValueExt for Value {
 
     fn is_hs_na(&self) -> bool {
         if let Some(s) = self.as_str() {
-            match haystack_type(s) {
-                JsonStringHaystackType::Na => true,
-                _ => false,
-            }
+            matches!(haystack_type(s), JsonStringHaystackType::Na)
         } else {
             false
         }
@@ -210,10 +204,7 @@ impl ValueExt for Value {
 
     fn is_hs_remove_marker(&self) -> bool {
         if let Some(s) = self.as_str() {
-            match haystack_type(s) {
-                JsonStringHaystackType::RemoveMarker => true,
-                _ => false,
-            }
+            matches!(haystack_type(s), JsonStringHaystackType::RemoveMarker)
         } else {
             false
         }

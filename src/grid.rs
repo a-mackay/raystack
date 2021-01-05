@@ -145,7 +145,7 @@ impl Grid {
         }
 
         let mut all_names = all_names.into_iter().collect::<Vec<_>>();
-        all_names.sort();
+        all_names.sort_unstable();
 
         let all_objects =
             all_names.iter().map(|c| json!({ "name": c })).collect();
@@ -168,7 +168,7 @@ impl Grid {
         }
 
         let mut all_names = all_names.into_iter().collect::<Vec<_>>();
-        all_names.sort();
+        all_names.sort_unstable();
 
         let all_objects =
             all_names.iter().map(|c| json!({ "name": c })).collect();

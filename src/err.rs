@@ -5,10 +5,7 @@ use thiserror::Error;
 impl Error {
     /// Return true if this error encapsulates a Haystack error grid.
     pub fn is_grid(&self) -> bool {
-        match self {
-            Self::Grid { .. } => true,
-            _ => false,
-        }
+        matches!(self, Self::Grid { .. })
     }
 
     /// Return a reference to the Haystack error grid encapsulated by this

@@ -1,4 +1,3 @@
-use base64;
 use reqwest::{Client, Response};
 use ring::{digest, hmac, pbkdf2};
 use std::convert::From;
