@@ -1,7 +1,7 @@
 use crate::grid::Grid;
 use raystack_core::Ref;
 use crate::Error;
-use chrono::{DateTime, NaiveDate, SecondsFormat};
+use chrono::{DateTime, NaiveDate, SecondsFormat, Utc};
 use chrono_tz::Tz;
 use url::Url;
 
@@ -31,6 +31,33 @@ trait HaystackRest {
         &self,
         id: &Ref,
         his_data: &[(DateTime<Tz>, f64)],
+        unit: &str,
+    ) -> Result<Grid, Error>;
+    /// Writes boolean values with UTC timestamps to a single point.
+    /// `time_zone_name` must be a valid SkySpark timezone name.
+    fn utc_his_write_bool(
+        &self,
+        id: &Ref,
+        time_zone_name: &str,
+        his_data: &[(DateTime<Utc>, bool)],
+    ) -> Result<Grid, Error>;
+    /// Writes string values with UTC timestamps to a single point.
+    /// `time_zone_name` must be a valid SkySpark timezone name.
+    fn utc_his_write_str(
+        &self,
+        id: &Ref,
+        time_zone_name: &str,
+        his_data: &[(DateTime<Utc>, String)],
+    ) -> Result<Grid, Error>;
+    /// Writes numeric values with UTC timestamps to a single point.
+    /// `unit` must be a valid Haystack unit literal, such as `L/s` or
+    /// `celsius`.
+    /// `time_zone_name` must be a valid SkySpark timezone name.
+    fn utc_his_write_num(
+        &self,
+        id: &Ref,
+        time_zone_name: &str,
+        his_data: &[(DateTime<Utc>, f64)],
         unit: &str,
     ) -> Result<Grid, Error>;
     /// The Haystack nav operation.
@@ -115,6 +142,15 @@ pub(crate) fn to_zinc_encoded_string(date_time: &DateTime<Tz>) -> String {
         .collect::<Vec<_>>()
         .last()
         .expect("timezone name is always formatted as Area/Location");
+    format!(
+        "{} {}",
+        date_time.to_rfc3339_opts(SecondsFormat::Secs, true),
+        time_zone_name,
+    )
+}
+
+/// Convert a UTC `DateTime` into a string which can be used in ZINC files.
+pub(crate) fn utc_to_zinc_encoded_string(date_time: &DateTime<Utc>, time_zone_name: &str) -> String {
     format!(
         "{} {}",
         date_time.to_rfc3339_opts(SecondsFormat::Secs, true),
