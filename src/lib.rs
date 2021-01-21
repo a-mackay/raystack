@@ -431,7 +431,6 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
-
     pub async fn utc_his_write_bool(
         &mut self,
         id: &Ref,
@@ -762,7 +761,11 @@ mod test {
     async fn utc_his_write_bool() {
         use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 
-        let ndt = NaiveDateTime::parse_from_str("2021-01-10 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        let ndt = NaiveDateTime::parse_from_str(
+            "2021-01-10 00:00:00",
+            "%Y-%m-%d %H:%M:%S",
+        )
+        .unwrap();
 
         let date_time1 = DateTime::from_utc(ndt, Utc);
         let date_time2 = date_time1 + Duration::minutes(5);
@@ -775,10 +778,16 @@ mod test {
             "continuousIntegrationHisWritePoint and kind == \"Bool\"",
         )
         .await;
-        let his_data =
-            vec![(date_time1, false), (date_time2, false), (date_time3, false)];
+        let his_data = vec![
+            (date_time1, false),
+            (date_time2, false),
+            (date_time3, false),
+        ];
 
-        let res = client.utc_his_write_bool(&id, "Sydney", &his_data[..]).await.unwrap();
+        let res = client
+            .utc_his_write_bool(&id, "Sydney", &his_data[..])
+            .await
+            .unwrap();
         assert_eq!(res.rows().len(), 0);
     }
 
@@ -812,7 +821,11 @@ mod test {
     async fn utc_his_write_num() {
         use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 
-        let ndt = NaiveDateTime::parse_from_str("2021-01-10 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        let ndt = NaiveDateTime::parse_from_str(
+            "2021-01-10 00:00:00",
+            "%Y-%m-%d %H:%M:%S",
+        )
+        .unwrap();
 
         let date_time1 = DateTime::from_utc(ndt, Utc);
         let date_time2 = date_time1 + Duration::minutes(5);
@@ -825,8 +838,11 @@ mod test {
             "continuousIntegrationHisWritePoint and kind == \"Number\" and unit",
         )
         .await;
-        let his_data =
-            vec![(date_time1, 111.111), (date_time2, 222.222), (date_time3, 333.333)];
+        let his_data = vec![
+            (date_time1, 111.111),
+            (date_time2, 222.222),
+            (date_time3, 333.333),
+        ];
 
         let res = client
             .utc_his_write_num(&id, "Sydney", &his_data[..], Some("L/s"))
@@ -868,7 +884,11 @@ mod test {
     async fn utc_his_write_num_no_unit() {
         use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 
-        let ndt = NaiveDateTime::parse_from_str("2021-01-10 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        let ndt = NaiveDateTime::parse_from_str(
+            "2021-01-10 00:00:00",
+            "%Y-%m-%d %H:%M:%S",
+        )
+        .unwrap();
 
         let date_time1 = DateTime::from_utc(ndt, Utc);
         let date_time2 = date_time1 + Duration::minutes(5);
@@ -881,8 +901,11 @@ mod test {
             "continuousIntegrationHisWritePoint and kind == \"Number\" and not unit",
         )
         .await;
-        let his_data =
-            vec![(date_time1, 11.11), (date_time2, 22.22), (date_time3, 33.33)];
+        let his_data = vec![
+            (date_time1, 11.11),
+            (date_time2, 22.22),
+            (date_time3, 33.33),
+        ];
 
         let res = client
             .utc_his_write_num(&id, "Sydney", &his_data[..], None)
@@ -924,7 +947,11 @@ mod test {
     async fn utc_his_write_str() {
         use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 
-        let ndt = NaiveDateTime::parse_from_str("2021-01-10 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        let ndt = NaiveDateTime::parse_from_str(
+            "2021-01-10 00:00:00",
+            "%Y-%m-%d %H:%M:%S",
+        )
+        .unwrap();
 
         let date_time1 = DateTime::from_utc(ndt, Utc);
         let date_time2 = date_time1 + Duration::minutes(5);
@@ -943,7 +970,10 @@ mod test {
             (date_time3, "here".to_owned()),
         ];
 
-        let res = client.utc_his_write_str(&id, "Sydney", &his_data[..]).await.unwrap();
+        let res = client
+            .utc_his_write_str(&id, "Sydney", &his_data[..])
+            .await
+            .unwrap();
         assert_eq!(res.rows().len(), 0);
     }
 
