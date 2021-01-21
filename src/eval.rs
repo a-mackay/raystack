@@ -1,8 +1,11 @@
-use crate::{add_backslash_if_necessary, has_valid_path_segments, new_auth_token, http_response_to_grid};
-use url::Url;
+use crate::{
+    add_backslash_if_necessary, has_valid_path_segments, http_response_to_grid,
+    new_auth_token,
+};
 use crate::{ClientSeed, Grid};
-use thiserror::Error;
 use serde_json::json;
+use thiserror::Error;
+use url::Url;
 
 /// A standalone function to call the eval API on a SkySpark server, without
 /// creating a `SkySparkClient`.
@@ -80,7 +83,8 @@ pub async fn eval(
             .map_err(|err| err.into());
         Ok(EvalOutput::new(grid?, Some(auth_token)))
     } else {
-        let grid: Result<Grid, EvalError> = http_response_to_grid(res).await.map_err(|err| err.into());
+        let grid: Result<Grid, EvalError> =
+            http_response_to_grid(res).await.map_err(|err| err.into());
         if was_new_token_obtained {
             Ok(EvalOutput::new(grid?, Some(auth_token)))
         } else {
@@ -189,9 +193,9 @@ impl EvalError {
 
 #[cfg(test)]
 mod test {
-    use crate::{ClientSeed, ValueExt};
     use super::eval;
     use super::{EvalError, EvalOutput};
+    use crate::{ClientSeed, ValueExt};
 
     fn project_api_url() -> String {
         std::env::var("RAYSTACK_SKYSPARK_PROJECT_API_URL").unwrap()
@@ -205,7 +209,10 @@ mod test {
         std::env::var("RAYSTACK_SKYSPARK_PASSWORD").unwrap()
     }
 
-    async fn eval_expr(axon_expr: &str, token: Option<&str>) -> Result<EvalOutput, EvalError> {
+    async fn eval_expr(
+        axon_expr: &str,
+        token: Option<&str>,
+    ) -> Result<EvalOutput, EvalError> {
         let seed = ClientSeed::new(15).unwrap();
 
         eval(
@@ -214,8 +221,9 @@ mod test {
             &username(),
             &password(),
             axon_expr,
-            token
-        ).await
+            token,
+        )
+        .await
     }
 
     #[tokio::test]
@@ -229,7 +237,9 @@ mod test {
 
     #[tokio::test]
     async fn eval_works_with_bad_token() {
-        let output = eval_expr("readAll(site)", Some("thistokenisnotvalid")).await.unwrap();
+        let output = eval_expr("readAll(site)", Some("thistokenisnotvalid"))
+            .await
+            .unwrap();
         assert!(output.has_new_auth_token());
         let grid = output.into_grid();
         assert!(grid.size() > 1);
@@ -240,7 +250,8 @@ mod test {
     async fn eval_works_with_good_token() {
         let output_for_token = eval_expr("readAll(site)", None).await.unwrap();
         let valid_token = output_for_token.new_auth_token().unwrap();
-        let output = eval_expr("readAll(site)", Some(valid_token)).await.unwrap();
+        let output =
+            eval_expr("readAll(site)", Some(valid_token)).await.unwrap();
 
         // We used a valid token, so there should be no new token:
         assert_eq!(output.has_new_auth_token(), false);

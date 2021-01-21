@@ -510,7 +510,9 @@ impl SkySparkClient {
     }
 }
 
-pub(crate) async fn http_response_to_grid(res: reqwest::Response) -> Result<Grid> {
+pub(crate) async fn http_response_to_grid(
+    res: reqwest::Response,
+) -> Result<Grid> {
     let json: serde_json::Value = res.json().await?;
     let grid: Grid = json.try_into()?;
 
@@ -543,9 +545,9 @@ pub(crate) fn has_valid_path_segments(project_api_url: &Url) -> bool {
 #[cfg(test)]
 mod test {
     use crate::api::HisReadRange;
-    use raystack_core::Ref;
     use crate::ClientSeed;
     use crate::SkySparkClient;
+    use raystack_core::Ref;
     use serde_json::json;
     use url::Url;
 

@@ -6,8 +6,8 @@ use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    use raystack::{ClientSeed, ValueExt};
     use raystack::eval::eval;
+    use raystack::{ClientSeed, ValueExt};
 
     let timeout_in_seconds = 30;
 
@@ -16,7 +16,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let client_seed = ClientSeed::new(timeout_in_seconds)?;
 
     let url = "http://test.com/api/bigProject/";
-    let output = eval(&client_seed, url, "name", "p4ssw0rd", "readAll(site)", None).await?;
+    let output =
+        eval(&client_seed, url, "name", "p4ssw0rd", "readAll(site)", None)
+            .await?;
     let sites_grid = output.into_grid();
 
     // Print the raw JSON:
