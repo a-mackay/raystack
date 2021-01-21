@@ -47,7 +47,7 @@ mod value_ext;
 
 use api::HaystackUrl;
 pub use api::HisReadRange;
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 pub use err::{Error, NewClientSeedError, NewSkySparkClientError};
 pub use grid::{Grid, ParseJsonGridError};
@@ -431,6 +431,85 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
+
+    pub async fn utc_his_write_bool(
+        &mut self,
+        id: &Ref,
+        time_zone_name: &str,
+        his_data: &[(DateTime<Utc>, bool)],
+    ) -> Result<Grid> {
+        use api::utc_to_zinc_encoded_string;
+
+        let rows = his_data
+            .iter()
+            .map(|(date_time, value)| {
+                json!({
+                    "ts": format!("t:{}", utc_to_zinc_encoded_string(date_time, time_zone_name)),
+                    "val": value
+                })
+            })
+            .collect();
+
+        let mut req_grid = Grid::new_internal(rows);
+        req_grid.add_ref_to_meta(id);
+
+        self.post(self.his_write_url(), &req_grid).await
+    }
+
+    pub async fn utc_his_write_num(
+        &mut self,
+        id: &Ref,
+        time_zone_name: &str,
+        his_data: &[(DateTime<Utc>, f64)],
+        unit: Option<&str>,
+    ) -> Result<Grid> {
+        use api::utc_to_zinc_encoded_string;
+
+        let rows = his_data
+            .iter()
+            .map(|(date_time, value)| {
+                let value_string = match unit {
+                    Some(unit) => format!("n:{} {}", value, unit),
+                    None => format!("n:{}", value),
+                };
+
+                json!({
+                    "ts": format!("t:{}", utc_to_zinc_encoded_string(date_time, time_zone_name)),
+                    "val": value_string
+                })
+            })
+            .collect();
+
+        let mut req_grid = Grid::new_internal(rows);
+        req_grid.add_ref_to_meta(id);
+
+        self.post(self.his_write_url(), &req_grid).await
+    }
+
+    pub async fn utc_his_write_str(
+        &mut self,
+        id: &Ref,
+        time_zone_name: &str,
+        his_data: &[(DateTime<Utc>, String)],
+    ) -> Result<Grid> {
+        use api::utc_to_zinc_encoded_string;
+
+        let rows = his_data
+            .iter()
+            .map(|(date_time, value)| {
+                json!({
+                    "ts": format!("t:{}", utc_to_zinc_encoded_string(date_time, time_zone_name)),
+                    "val": value
+                })
+            })
+            .collect();
+
+        let mut req_grid = Grid::new_internal(rows);
+        req_grid.add_ref_to_meta(id);
+
+        self.post(self.his_write_url(), &req_grid).await
+    }
+
     pub async fn nav(&mut self, nav_id: Option<&str>) -> Result<Grid> {
         let req_grid = match nav_id {
             Some(nav_id) => {
@@ -680,6 +759,30 @@ mod test {
     }
 
     #[tokio::test]
+    async fn utc_his_write_bool() {
+        use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+
+        let ndt = NaiveDateTime::parse_from_str("2021-01-10 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+
+        let date_time1 = DateTime::from_utc(ndt, Utc);
+        let date_time2 = date_time1 + Duration::minutes(5);
+        let date_time3 = date_time1 + Duration::minutes(10);
+
+        let mut client = new_client().await;
+
+        let id = get_ref_for_filter(
+            &mut client,
+            "continuousIntegrationHisWritePoint and kind == \"Bool\"",
+        )
+        .await;
+        let his_data =
+            vec![(date_time1, false), (date_time2, false), (date_time3, false)];
+
+        let res = client.utc_his_write_bool(&id, "Sydney", &his_data[..]).await.unwrap();
+        assert_eq!(res.rows().len(), 0);
+    }
+
+    #[tokio::test]
     async fn his_write_bool() {
         use chrono::{DateTime, Duration};
         use chrono_tz::Australia::Sydney;
@@ -702,6 +805,33 @@ mod test {
             vec![(date_time1, true), (date_time2, false), (date_time3, true)];
 
         let res = client.his_write_bool(&id, &his_data[..]).await.unwrap();
+        assert_eq!(res.rows().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn utc_his_write_num() {
+        use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+
+        let ndt = NaiveDateTime::parse_from_str("2021-01-10 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+
+        let date_time1 = DateTime::from_utc(ndt, Utc);
+        let date_time2 = date_time1 + Duration::minutes(5);
+        let date_time3 = date_time1 + Duration::minutes(10);
+
+        let mut client = new_client().await;
+
+        let id = get_ref_for_filter(
+            &mut client,
+            "continuousIntegrationHisWritePoint and kind == \"Number\" and unit",
+        )
+        .await;
+        let his_data =
+            vec![(date_time1, 111.111), (date_time2, 222.222), (date_time3, 333.333)];
+
+        let res = client
+            .utc_his_write_num(&id, "Sydney", &his_data[..], Some("L/s"))
+            .await
+            .unwrap();
         assert_eq!(res.rows().len(), 0);
     }
 
@@ -735,6 +865,33 @@ mod test {
     }
 
     #[tokio::test]
+    async fn utc_his_write_num_no_unit() {
+        use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+
+        let ndt = NaiveDateTime::parse_from_str("2021-01-10 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+
+        let date_time1 = DateTime::from_utc(ndt, Utc);
+        let date_time2 = date_time1 + Duration::minutes(5);
+        let date_time3 = date_time1 + Duration::minutes(10);
+
+        let mut client = new_client().await;
+
+        let id = get_ref_for_filter(
+            &mut client,
+            "continuousIntegrationHisWritePoint and kind == \"Number\" and not unit",
+        )
+        .await;
+        let his_data =
+            vec![(date_time1, 11.11), (date_time2, 22.22), (date_time3, 33.33)];
+
+        let res = client
+            .utc_his_write_num(&id, "Sydney", &his_data[..], None)
+            .await
+            .unwrap();
+        assert_eq!(res.rows().len(), 0);
+    }
+
+    #[tokio::test]
     async fn his_write_num_no_unit() {
         use chrono::{DateTime, Duration};
         use chrono_tz::Australia::Sydney;
@@ -760,6 +917,33 @@ mod test {
             .his_write_num(&id, &his_data[..], None)
             .await
             .unwrap();
+        assert_eq!(res.rows().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn utc_his_write_str() {
+        use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+
+        let ndt = NaiveDateTime::parse_from_str("2021-01-10 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+
+        let date_time1 = DateTime::from_utc(ndt, Utc);
+        let date_time2 = date_time1 + Duration::minutes(5);
+        let date_time3 = date_time1 + Duration::minutes(10);
+
+        let mut client = new_client().await;
+        let id = get_ref_for_filter(
+            &mut client,
+            "continuousIntegrationHisWritePoint and kind == \"Str\"",
+        )
+        .await;
+
+        let his_data = vec![
+            (date_time1, "utc".to_owned()),
+            (date_time2, "data".to_owned()),
+            (date_time3, "here".to_owned()),
+        ];
+
+        let res = client.utc_his_write_str(&id, "Sydney", &his_data[..]).await.unwrap();
         assert_eq!(res.rows().len(), 0);
     }
 
