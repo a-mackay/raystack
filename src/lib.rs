@@ -628,6 +628,7 @@ mod test {
     use crate::api::HisReadRange;
     use crate::ClientSeed;
     use crate::SkySparkClient;
+    use crate::ValueExt;
     use raystack_core::Ref;
     use serde_json::json;
     use url::Url;
@@ -1013,7 +1014,7 @@ mod test {
     async fn nav_root() {
         let mut client = new_client().await;
         let grid = client.nav(None).await.unwrap();
-        assert!(grid.rows()[0]["navId"].is_string());
+        assert!(grid.rows()[0]["navId"].is_hs_ref());
     }
 
     #[tokio::test]
