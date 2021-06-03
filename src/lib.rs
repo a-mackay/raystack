@@ -52,7 +52,7 @@ use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 pub use err::{Error, NewClientSeedError, NewSkySparkClientError};
 pub use grid::{Grid, ParseJsonGridError};
-pub use hs_types::{Date};
+pub use hs_types::{Date, Time};
 pub use raystack_core::Coord;
 pub use raystack_core::{is_tag_name, ParseTagNameError, TagName};
 pub use raystack_core::{Number};

@@ -1,5 +1,5 @@
-use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime};
-use crate::{Date};
+use chrono::{DateTime, FixedOffset};
+use crate::{Date, Time};
 use raystack_core::{Coord, Hayson, Marker, Na, Number, RemoveMarker, Ref, Symbol, Uri, Xstr};
 use serde_json::Value;
 
@@ -31,7 +31,7 @@ pub trait ValueExt {
     /// Convert the JSON value to a Haystack Symbol.
     fn as_hs_symbol(&self) -> Option<Symbol>;
     /// Convert the JSON value to a Haystack Time.
-    fn as_hs_time(&self) -> Option<NaiveTime>;
+    fn as_hs_time(&self) -> Option<Time>;
     /// Returns the Haystack URI value as a Haystack Uri.
     fn as_hs_uri(&self) -> Option<Uri>;
     /// Return the Haystack XStr value as a Haystack Xstr.
@@ -134,18 +134,8 @@ impl ValueExt for Value {
         Symbol::from_hayson(self).ok()
     }
 
-    fn as_hs_time(&self) -> Option<NaiveTime> {
-        self.as_str().and_then(|s| match haystack_type(s) {
-            JsonStringHaystackType::Time => {
-                let time_str = trim_hs_prefix(s);
-                NaiveTime::parse_from_str(time_str, "%k:%M:%S")
-                    .ok()
-                    .or_else(|| {
-                        NaiveTime::parse_from_str(time_str, "%k:%M").ok()
-                    })
-            }
-            _ => None,
-        })
+    fn as_hs_time(&self) -> Option<Time> {
+        Time::from_hayson(self).ok()
     }
 
     fn as_hs_uri(&self) -> Option<Uri> {
