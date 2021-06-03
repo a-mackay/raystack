@@ -456,15 +456,7 @@ impl Grid {
 
     /// Returns true if the grid appears to be an error grid.
     pub fn is_error(&self) -> bool {
-        if let Some(err_val) = self.meta().get("err") {
-            if let Some(err_str) = err_val.as_str() {
-                err_str == MARKER_LITERAL
-            } else {
-                false
-            }
-        } else {
-            false
-        }
+        self.meta().get("err").is_some()
     }
 
     /// Return the error trace if present.
@@ -565,8 +557,6 @@ pub enum CsvError {
     #[error("Error consuming a CSV writer")]
     Writer(#[from] Box<csv::IntoInnerError<csv::Writer<Vec<u8>>>>),
 }
-
-const MARKER_LITERAL: &str = "m:";
 
 impl std::convert::TryFrom<Value> for Grid {
     type Error = ParseJsonGridError;
