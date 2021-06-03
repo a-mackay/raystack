@@ -593,6 +593,10 @@ impl SkySparkClient {
     }
 }
 
+fn date_time_to_string(date_time: &DateTime) -> String {
+    format!("{} {}", date_time.date_time().to_rfc3339(), date_time.time_zone())
+}
+
 pub(crate) async fn http_response_to_grid(
     res: reqwest::Response,
 ) -> Result<Grid> {
@@ -757,8 +761,7 @@ mod test {
     ) -> Ref {
         let points_grid = client.read(filter, Some(1)).await.unwrap();
         let point_ref = points_grid.rows()[0]["id"]
-            .as_str()
-            .and_then(|ref_str| Ref::from_encoded_json_string(ref_str).ok())
+            .as_hs_ref()
             .unwrap();
         point_ref
     }
