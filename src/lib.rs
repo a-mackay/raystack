@@ -362,7 +362,7 @@ impl SkySparkClient {
     pub async fn his_write_bool(
         &mut self,
         id: &Ref,
-        his_data: &[(DateTime<Tz>, bool)],
+        his_data: &[(chrono::DateTime<Tz>, bool)],
     ) -> Result<Grid> {
         use api::to_zinc_encoded_string;
 
@@ -385,7 +385,7 @@ impl SkySparkClient {
     pub async fn his_write_num(
         &mut self,
         id: &Ref,
-        his_data: &[(DateTime<Tz>, f64)],
+        his_data: &[(chrono::DateTime<Tz>, f64)],
         unit: Option<&str>,
     ) -> Result<Grid> {
         use api::to_zinc_encoded_string;
@@ -414,7 +414,7 @@ impl SkySparkClient {
     pub async fn his_write_str(
         &mut self,
         id: &Ref,
-        his_data: &[(DateTime<Tz>, String)],
+        his_data: &[(chrono::DateTime<Tz>, String)],
     ) -> Result<Grid> {
         use api::to_zinc_encoded_string;
 
@@ -438,7 +438,7 @@ impl SkySparkClient {
         &mut self,
         id: &Ref,
         time_zone_name: &str,
-        his_data: &[(DateTime<Utc>, bool)],
+        his_data: &[(chrono::DateTime<Utc>, bool)],
     ) -> Result<Grid> {
         use api::utc_to_zinc_encoded_string;
 
@@ -462,7 +462,7 @@ impl SkySparkClient {
         &mut self,
         id: &Ref,
         time_zone_name: &str,
-        his_data: &[(DateTime<Utc>, f64)],
+        his_data: &[(chrono::DateTime<Utc>, f64)],
         unit: Option<&str>,
     ) -> Result<Grid> {
         use api::utc_to_zinc_encoded_string;
@@ -492,7 +492,7 @@ impl SkySparkClient {
         &mut self,
         id: &Ref,
         time_zone_name: &str,
-        his_data: &[(DateTime<Utc>, String)],
+        his_data: &[(chrono::DateTime<Utc>, String)],
     ) -> Result<Grid> {
         use api::utc_to_zinc_encoded_string;
 

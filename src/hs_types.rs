@@ -155,6 +155,8 @@ impl DateTime {
 
 impl Hayson for DateTime {
     fn from_hayson(value: &Value) -> Result<Self, FromHaysonError> {
+        // Use this time zone when the time zone is missing in the Hayson
+        // encoding:
         let default_tz = "GMT";
 
         match &value {
@@ -163,14 +165,16 @@ impl Hayson for DateTime {
                     return Err(kind_err);
                 }
 
-                let mut tz_value = obj.get("tz");
-                let tz = default_tz.to_owned();
+                let tz_value = obj.get("tz");
+                let mut tz = default_tz.to_owned();
 
                 if let Some(value) = tz_value {
                     match value {
-                        Value::Null => {},
+                        Value::Null => {
+                            tz = default_tz.to_owned();
+                        },
                         Value::String(tz_string) => {
-                            tz = *tz_string;
+                            tz = tz_string.clone();
                         },
                         _ => return hayson_error("DateTime tz is not a null or a string")
                     }
@@ -267,4 +271,6 @@ mod test {
         let deserialized = DateTime::from_hayson(&value).unwrap();
         assert_eq!(x, deserialized);
     }
+
+    // TODO more tests for serde datetime
 }

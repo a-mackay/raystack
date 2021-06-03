@@ -93,6 +93,7 @@ pub async fn eval(
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 /// The resulting output of a call to the SkySpark eval API.
 pub struct EvalOutput {
     /// The grid returned from the server.
