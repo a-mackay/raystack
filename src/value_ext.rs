@@ -1,5 +1,4 @@
-use chrono::{DateTime, FixedOffset};
-use crate::{Date, Time};
+use crate::{Date, DateTime, Time};
 use raystack_core::{Coord, Hayson, Marker, Na, Number, RemoveMarker, Ref, Symbol, Uri, Xstr};
 use serde_json::Value;
 
@@ -12,10 +11,8 @@ pub trait ValueExt {
     fn as_hs_coord(&self) -> Option<Coord>;
     /// Convert the JSON value to a Haystack Date.
     fn as_hs_date(&self) -> Option<Date>;
-    /// Convert the JSON value to a tuple containing a
-    /// DateTime with a fixed timezone offset, and a string
-    /// containing the Haystack timezone name.
-    fn as_hs_date_time(&self) -> Option<(DateTime<FixedOffset>, &str)>;
+    /// Convert the JSON value to a Haystack DateTime.
+    fn as_hs_date_time(&self) -> Option<DateTime>;
     /// Convert the JSON value to a Haystack Marker.
     fn as_hs_marker(&self) -> Option<Marker>;
     /// Convert the JSON value to a Haystack NA.
@@ -86,24 +83,8 @@ impl ValueExt for Value {
         Date::from_hayson(self).ok()
     }
 
-    fn as_hs_date_time(&self) -> Option<(DateTime<FixedOffset>, &str)> {
-        self.as_str().and_then(|s| match haystack_type(s) {
-            JsonStringHaystackType::DateTime => {
-                let mut split = trim_hs_prefix(s).split(' ');
-                let date_time = split
-                    .next()
-                    .and_then(|s| DateTime::parse_from_rfc3339(s).ok());
-                let time_zone_name = split.next();
-                let tuple = (date_time, time_zone_name);
-                match tuple {
-                    (Some(date_time), Some(time_zone_name)) => {
-                        Some((date_time, time_zone_name))
-                    }
-                    _ => None,
-                }
-            }
-            _ => None,
-        })
+    fn as_hs_date_time(&self) -> Option<DateTime> {
+        DateTime::from_hayson(self).ok()
     }
 
     fn as_hs_marker(&self) -> Option<Marker> {

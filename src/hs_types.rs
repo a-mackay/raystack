@@ -2,7 +2,7 @@
 //! This module defines Haystack types which are not taken from the
 //! raystack_core dependency.
 
-use chrono::{NaiveDate, NaiveTime};
+use chrono::{FixedOffset, NaiveDate, NaiveTime};
 use raystack_core::{FromHaysonError, Hayson};
 use serde_json::{json, Value};
 
@@ -120,6 +120,94 @@ impl Hayson for Time {
     }
 }
 
+/// A Haystack DateTime.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DateTime {
+    date_time: chrono::DateTime<FixedOffset>,
+    /// The Olsen timezone database city name of the time zone.
+    time_zone: String,
+}
+
+impl DateTime {
+    pub fn new(date_time: chrono::DateTime<FixedOffset>, time_zone: String) -> Self {
+        Self {
+            date_time,
+            time_zone,
+        }
+    }
+
+    pub fn date_time(&self) -> &chrono::DateTime<FixedOffset> {
+        &self.date_time
+    }
+
+    pub fn into_date_time(self) -> chrono::DateTime<FixedOffset> {
+        self.date_time
+    }
+
+    pub fn time_zone(&self) -> &str {
+        &self.time_zone
+    }
+
+    pub fn into_time_zone(self) -> String {
+        self.time_zone
+    }
+}
+
+impl Hayson for DateTime {
+    fn from_hayson(value: &Value) -> Result<Self, FromHaysonError> {
+        let default_tz = "GMT";
+
+        match &value {
+            Value::Object(obj) => {
+                if let Some(kind_err) = hayson_check_kind("dateTime", &value) {
+                    return Err(kind_err);
+                }
+
+                let mut tz_value = obj.get("tz");
+                let tz = default_tz.to_owned();
+
+                if let Some(value) = tz_value {
+                    match value {
+                        Value::Null => {},
+                        Value::String(tz_string) => {
+                            tz = *tz_string;
+                        },
+                        _ => return hayson_error("DateTime tz is not a null or a string")
+                    }
+                }
+
+                let dt = obj.get("val");
+
+                if dt.is_none() {
+                    return hayson_error("DateTime val is missing");
+                }
+
+                let dt = dt.unwrap().as_str();
+
+                if dt.is_none() {
+                    return hayson_error("DateTime val is not a string");
+                }
+
+                let dt = dt.unwrap();
+
+                match chrono::DateTime::parse_from_rfc3339(dt) {
+                    Ok(dt) => Ok(DateTime::new(dt, tz)),
+                    Err(_) => hayson_error("Time val string could not be parsed as a NaiveTime")
+                }
+            },
+            _ => hayson_error("Time JSON value must be an object")
+        }
+    }
+
+    fn to_hayson(&self) -> Value {
+        json!({
+            KIND: "dateTime",
+            "val": self.date_time().to_rfc3339(),
+            "tz": self.time_zone(),
+        })
+    }
+}
+
 fn hayson_error<T, M>(message: M) -> Result<T, FromHaysonError> where M: AsRef<str> {
     Err(FromHaysonError::new(message.as_ref().to_owned()))
 }
@@ -151,7 +239,7 @@ fn hayson_check_kind(target_kind: &str, value: &Value) -> Option<FromHaysonError
 mod test {
     use raystack_core::Hayson;
     use chrono::{NaiveDate, NaiveTime};
-    use crate::{Date, Time};
+    use crate::{Date, DateTime, Time};
 
     #[test]
     fn serde_date_works() {
@@ -168,6 +256,15 @@ mod test {
         let x = Time::new(naive_time);
         let value = x.to_hayson();
         let deserialized = Time::from_hayson(&value).unwrap();
+        assert_eq!(x, deserialized);
+    }
+
+    #[test]
+    fn serde_date_time_works() {
+        let dt = chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z").unwrap();
+        let x = DateTime::new(dt, "New_York".to_owned());
+        let value = x.to_hayson();
+        let deserialized = DateTime::from_hayson(&value).unwrap();
         assert_eq!(x, deserialized);
     }
 }
