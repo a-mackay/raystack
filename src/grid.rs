@@ -62,6 +62,7 @@ impl Grid {
         );
 
         let mut json_grid = json!({
+            "_kind": "grid",
             "meta": {"ver": "3.0"},
         });
 
