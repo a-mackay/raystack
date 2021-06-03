@@ -536,7 +536,7 @@ impl SkySparkClient {
     ) -> Result<Grid> {
         let row = match limit {
             Some(integer) => json!({"filter": filter, "limit": integer}),
-            None => json!({"filter": filter, "limit": "N"}),
+            None => json!({"filter": filter}),
         };
 
         let req_grid = Grid::new_internal(vec![row]);
@@ -1040,13 +1040,10 @@ mod test {
     #[tokio::test]
     async fn read_with_no_limit() {
         let mut client = new_client().await;
-        let grid = client.read("projMeta or uiMeta", None).await.unwrap();
+        let grid = client.read("point", None).await.unwrap();
 
-        assert!(grid.rows()[0]["id"].is_string());
-        let proj_meta = &grid.rows()[0]["projMeta"];
-        let ui_meta = &grid.rows()[0]["uiMeta"];
-        let marker = json!("m:");
-        assert!(*proj_meta == marker || *ui_meta == marker);
+        assert!(grid.rows()[0]["id"].is_hs_ref());
+        assert!(grid.rows().len() > 10);
     }
 
     #[tokio::test]
@@ -1103,7 +1100,7 @@ mod test {
         let mut client = new_client().await;
         let axon_expr = "readAll(id and mod)[0..1].keepCols([\"id\", \"mod\"])";
         let grid = client.eval(axon_expr).await.unwrap();
-        assert!(grid.rows()[0]["id"].is_string());
+        assert!(grid.rows()[0]["id"].is_hs_ref());
     }
 
     #[test]
