@@ -512,10 +512,11 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
-    pub async fn nav(&mut self, nav_id: Option<&str>) -> Result<Grid> {
+    pub async fn nav(&mut self, nav_id: Option<&Ref>) -> Result<Grid> {
+        use raystack_core::Hayson;
         let req_grid = match nav_id {
             Some(nav_id) => {
-                let row = json!({ "navId": nav_id });
+                let row = json!({ "navId": nav_id.to_hayson() });
                 Grid::new_internal(vec![row])
             }
             None => Grid::new_internal(Vec::new()),
@@ -543,9 +544,10 @@ impl SkySparkClient {
     }
 
     pub async fn read_by_ids(&mut self, ids: &[Ref]) -> Result<Grid> {
+        use raystack_core::Hayson;
         let rows = ids
             .iter()
-            .map(|id| json!({"id": id.to_encoded_json_string()}))
+            .map(|id| json!({"id": id.to_hayson()}))
             .collect();
 
         let req_grid = Grid::new_internal(rows);
@@ -1021,10 +1023,10 @@ mod test {
     async fn nav() {
         let mut client = new_client().await;
         let root_grid = client.nav(None).await.unwrap();
-        let child_nav_id = root_grid.rows()[0]["navId"].as_str().unwrap();
+        let child_nav_id = root_grid.rows()[0]["navId"].as_hs_ref().unwrap();
 
         let child_grid = client.nav(Some(&child_nav_id)).await.unwrap();
-        let final_nav_id = child_grid.rows()[0]["navId"].as_str().unwrap();
+        let final_nav_id = child_grid.rows()[0]["navId"].as_hs_ref().unwrap();
         assert_ne!(child_nav_id, final_nav_id);
     }
 
@@ -1077,8 +1079,7 @@ mod test {
         let mut client = new_client().await;
         // Get some valid ids:
         let grid1 = client.read("id", Some(1)).await.unwrap();
-        let raw_id1 = &grid1.rows()[0]["id"].as_str().unwrap();
-        let ref1 = Ref::from_encoded_json_string(raw_id1).unwrap();
+        let ref1 = grid1.rows()[0]["id"].as_hs_ref().unwrap().clone();
         let ids = vec![ref1];
         let grid2 = client.read_by_ids(&ids).await.unwrap();
         assert_eq!(grid1, grid2);
@@ -1089,10 +1090,8 @@ mod test {
         let mut client = new_client().await;
         // Get some valid ids:
         let grid1 = client.read("id", Some(2)).await.unwrap();
-        let raw_id1 = &grid1.rows()[0]["id"].as_str().unwrap();
-        let raw_id2 = &grid1.rows()[1]["id"].as_str().unwrap();
-        let ref1 = Ref::from_encoded_json_string(raw_id1).unwrap();
-        let ref2 = Ref::from_encoded_json_string(raw_id2).unwrap();
+        let ref1 = grid1.rows()[0]["id"].as_hs_ref().unwrap().clone();
+        let ref2 = grid1.rows()[1]["id"].as_hs_ref().unwrap().clone();
 
         let ids = vec![ref1, ref2];
         let grid2 = client.read_by_ids(&ids).await.unwrap();
