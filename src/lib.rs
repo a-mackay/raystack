@@ -45,6 +45,7 @@ pub mod eval;
 mod grid;
 mod hs_types;
 mod value_ext;
+mod tz;
 
 use api::HaystackUrl;
 pub use api::HisReadRange;
@@ -64,6 +65,7 @@ use std::convert::TryInto;
 use thiserror::Error;
 use url::Url;
 pub use value_ext::ValueExt;
+pub use tz::{skyspark_tz_string_to_tz};
 
 type Result<T> = std::result::Result<T, Error>;
 type StdResult<T, E> = std::result::Result<T, E>;

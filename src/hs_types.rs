@@ -2,7 +2,8 @@
 //! This module defines Haystack types which are not taken from the
 //! raystack_core dependency.
 
-use chrono::{FixedOffset, NaiveDate, NaiveTime};
+use chrono::{NaiveDate, NaiveTime};
+use chrono_tz::Tz;
 use raystack_core::{FromHaysonError, Hayson};
 use serde_json::{json, Value};
 
@@ -123,33 +124,33 @@ impl Hayson for Time {
 /// A Haystack DateTime.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DateTime {
-    date_time: chrono::DateTime<FixedOffset>,
-    /// The Olsen timezone database city name of the time zone.
-    time_zone: String,
+    date_time: chrono::DateTime<Tz>,
 }
 
 impl DateTime {
-    pub fn new(date_time: chrono::DateTime<FixedOffset>, time_zone: String) -> Self {
+    pub fn new(date_time: chrono::DateTime<Tz>) -> Self {
         Self {
-            date_time,
-            time_zone,
+            date_time
         }
     }
 
-    pub fn date_time(&self) -> &chrono::DateTime<FixedOffset> {
+    pub fn date_time(&self) -> &chrono::DateTime<Tz> {
         &self.date_time
     }
 
-    pub fn into_date_time(self) -> chrono::DateTime<FixedOffset> {
+    pub fn into_date_time(self) -> chrono::DateTime<Tz> {
         self.date_time
     }
-
+    /// Return the IANA TZDB identifier, for example  "America/New_York".
     pub fn time_zone(&self) -> &str {
-        &self.time_zone
+        self.date_time.timezone().name()
     }
 
-    pub fn into_time_zone(self) -> String {
-        self.time_zone
+    /// Return the Olsen timezone database city name of the time zone.
+    pub fn olsen_time_zone(&self) -> Option<&str> {
+        let parts = self.time_zone().split("/");
+        let city = parts.skip(1).next();
+        city
     }
 }
 
@@ -166,15 +167,15 @@ impl Hayson for DateTime {
                 }
 
                 let tz_value = obj.get("tz");
-                let mut tz = default_tz.to_owned();
+                let mut tz_str = default_tz.to_owned();
 
                 if let Some(value) = tz_value {
                     match value {
                         Value::Null => {
-                            tz = default_tz.to_owned();
+                            tz_str = default_tz.to_owned();
                         },
                         Value::String(tz_string) => {
-                            tz = tz_string.clone();
+                            tz_str = tz_string.clone();
                         },
                         _ => return hayson_error("DateTime tz is not a null or a string")
                     }
@@ -195,7 +196,15 @@ impl Hayson for DateTime {
                 let dt = dt.unwrap();
 
                 match chrono::DateTime::parse_from_rfc3339(dt) {
-                    Ok(dt) => Ok(DateTime::new(dt, tz)),
+                    Ok(dt) => {
+                        let tz = crate::skyspark_tz_string_to_tz(&tz_str);
+                        if let Some(tz) = tz {
+                            let dt = dt.with_timezone(&tz);
+                            Ok(DateTime::new(dt))
+                        } else {
+                            hayson_error(format!("DateTime tz '{}' has no matching chrono_tz time zone", tz_str))
+                        }
+                    },
                     Err(_) => hayson_error("Time val string could not be parsed as a NaiveTime")
                 }
             },
@@ -207,7 +216,7 @@ impl Hayson for DateTime {
         json!({
             KIND: "dateTime",
             "val": self.date_time().to_rfc3339(),
-            "tz": self.time_zone(),
+            "tz": self.olsen_time_zone(),
         })
     }
 }
@@ -265,8 +274,9 @@ mod test {
 
     #[test]
     fn serde_date_time_works() {
-        let dt = chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z").unwrap();
-        let x = DateTime::new(dt, "New_York".to_owned());
+        use chrono_tz::Tz;
+        let dt = chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z").unwrap().with_timezone(&Tz::GMT);
+        let x = DateTime::new(dt);
         let value = x.to_hayson();
         let deserialized = DateTime::from_hayson(&value).unwrap();
         assert_eq!(x, deserialized);
