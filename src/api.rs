@@ -148,15 +148,3 @@ pub(crate) fn to_zinc_encoded_string(date_time: &DateTime<Tz>) -> String {
         time_zone_name,
     )
 }
-
-/// Convert a UTC `DateTime` into a string which can be used in ZINC files.
-pub(crate) fn utc_to_zinc_encoded_string(
-    date_time: &DateTime<Utc>,
-    time_zone_name: &str,
-) -> String {
-    format!(
-        "{} {}",
-        date_time.to_rfc3339_opts(SecondsFormat::Secs, true),
-        time_zone_name,
-    )
-}

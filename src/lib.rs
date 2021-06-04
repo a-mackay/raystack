@@ -50,7 +50,6 @@ mod value_ext;
 use api::HaystackUrl;
 pub use api::HisReadRange;
 use chrono::Utc;
-use chrono_tz::Tz;
 pub use err::{Error, NewClientSeedError, NewSkySparkClientError};
 pub use grid::{Grid, ParseJsonGridError};
 pub use hs_types::{Date, DateTime, Time};
@@ -595,14 +594,6 @@ impl SkySparkClient {
         let req_grid = Grid::new_internal(vec![row]);
         self.post(self.eval_url(), &req_grid).await
     }
-}
-
-fn date_time_to_string(date_time: &DateTime) -> String {
-    format!(
-        "{} {}",
-        date_time.date_time().to_rfc3339(),
-        date_time.time_zone()
-    )
 }
 
 pub(crate) async fn http_response_to_grid(
