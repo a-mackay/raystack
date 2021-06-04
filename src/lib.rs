@@ -44,28 +44,28 @@ mod err;
 pub mod eval;
 mod grid;
 mod hs_types;
-mod value_ext;
 mod tz;
+mod value_ext;
 
 use api::HaystackUrl;
 pub use api::HisReadRange;
-use chrono::{Utc};
+use chrono::Utc;
 use chrono_tz::Tz;
 pub use err::{Error, NewClientSeedError, NewSkySparkClientError};
 pub use grid::{Grid, ParseJsonGridError};
 pub use hs_types::{Date, DateTime, Time};
 pub use raystack_core::Coord;
+pub use raystack_core::Number;
 pub use raystack_core::{is_tag_name, ParseTagNameError, TagName};
-pub use raystack_core::{Number};
-pub use raystack_core::{ParseRefError, Ref};
 pub use raystack_core::{Marker, Na, RemoveMarker, Symbol, Uri, Xstr};
+pub use raystack_core::{ParseRefError, Ref};
 use reqwest::Client as ReqwestClient;
 use serde_json::json;
 use std::convert::TryInto;
 use thiserror::Error;
+pub use tz::skyspark_tz_string_to_tz;
 use url::Url;
 pub use value_ext::ValueExt;
-pub use tz::{skyspark_tz_string_to_tz};
 
 type Result<T> = std::result::Result<T, Error>;
 type StdResult<T, E> = std::result::Result<T, E>;
@@ -387,22 +387,16 @@ impl SkySparkClient {
     pub async fn his_write_num(
         &mut self,
         id: &Ref,
-        his_data: &[(chrono::DateTime<Tz>, f64)],
-        unit: Option<&str>,
+        his_data: &[(DateTime, Number)],
     ) -> Result<Grid> {
-        use api::to_zinc_encoded_string;
+        use raystack_core::Hayson;
 
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
-                let value_string = match unit {
-                    Some(unit) => format!("n:{} {}", value, unit),
-                    None => format!("n:{}", value),
-                };
-
                 json!({
-                    "ts": format!("t:{}", to_zinc_encoded_string(date_time)),
-                    "val": value_string
+                    "ts": date_time.to_hayson(),
+                    "val": value.to_hayson(),
                 })
             })
             .collect();
@@ -538,7 +532,7 @@ impl SkySparkClient {
     ) -> Result<Grid> {
         let row = match limit {
             Some(integer) => json!({"filter": filter, "limit": integer}),
-            None => json!({"filter": filter}),
+            None => json!({ "filter": filter }),
         };
 
         let req_grid = Grid::new_internal(vec![row]);
@@ -547,10 +541,7 @@ impl SkySparkClient {
 
     pub async fn read_by_ids(&mut self, ids: &[Ref]) -> Result<Grid> {
         use raystack_core::Hayson;
-        let rows = ids
-            .iter()
-            .map(|id| json!({"id": id.to_hayson()}))
-            .collect();
+        let rows = ids.iter().map(|id| json!({"id": id.to_hayson()})).collect();
 
         let req_grid = Grid::new_internal(rows);
         self.post(self.read_url(), &req_grid).await
@@ -596,7 +587,11 @@ impl SkySparkClient {
 }
 
 fn date_time_to_string(date_time: &DateTime) -> String {
-    format!("{} {}", date_time.date_time().to_rfc3339(), date_time.time_zone())
+    format!(
+        "{} {}",
+        date_time.date_time().to_rfc3339(),
+        date_time.time_zone()
+    )
 }
 
 pub(crate) async fn http_response_to_grid(
@@ -637,7 +632,7 @@ mod test {
     use crate::ClientSeed;
     use crate::SkySparkClient;
     use crate::ValueExt;
-    use raystack_core::Ref;
+    use raystack_core::{Number, Ref};
     use serde_json::json;
     use url::Url;
 
@@ -762,9 +757,7 @@ mod test {
         filter: &str,
     ) -> Ref {
         let points_grid = client.read(filter, Some(1)).await.unwrap();
-        let point_ref = points_grid.rows()[0]["id"]
-            .as_hs_ref()
-            .unwrap();
+        let point_ref = points_grid.rows()[0]["id"].as_hs_ref().unwrap();
         point_ref
     }
 
@@ -881,13 +874,16 @@ mod test {
             "continuousIntegrationHisWritePoint and kind == \"Number\" and unit",
         )
         .await;
-        let his_data =
-            vec![(date_time1, 10.0), (date_time2, 15.34), (date_time3, 1.234)];
 
-        let res = client
-            .his_write_num(&id, &his_data[..], Some("L/s"))
-            .await
-            .unwrap();
+        let unit = Some("L/s".to_owned());
+
+        let his_data = vec![
+            (date_time1.into(), Number::new(10.0, unit.clone())),
+            (date_time2.into(), Number::new(15.34, unit.clone())),
+            (date_time3.into(), Number::new(1.234, unit.clone())),
+        ];
+
+        let res = client.his_write_num(&id, &his_data[..]).await.unwrap();
         assert_eq!(res.rows().len(), 0);
     }
 
@@ -944,13 +940,14 @@ mod test {
             "continuousIntegrationHisWritePoint and kind == \"Number\" and not unit",
         )
         .await;
-        let his_data =
-            vec![(date_time1, 10.0), (date_time2, 15.34), (date_time3, 1.234)];
 
-        let res = client
-            .his_write_num(&id, &his_data[..], None)
-            .await
-            .unwrap();
+        let his_data = vec![
+            (date_time1.into(), Number::new_unitless(10.0)),
+            (date_time2.into(), Number::new_unitless(15.34)),
+            (date_time3.into(), Number::new_unitless(1.234)),
+        ];
+
+        let res = client.his_write_num(&id, &his_data[..]).await.unwrap();
         assert_eq!(res.rows().len(), 0);
     }
 

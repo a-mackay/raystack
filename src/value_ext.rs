@@ -1,5 +1,7 @@
 use crate::{Date, DateTime, Time};
-use raystack_core::{Coord, Hayson, Marker, Na, Number, RemoveMarker, Ref, Symbol, Uri, Xstr};
+use raystack_core::{
+    Coord, Hayson, Marker, Na, Number, Ref, RemoveMarker, Symbol, Uri, Xstr,
+};
 use serde_json::Value;
 
 /// An extension trait for the `serde_json::Value` enum,

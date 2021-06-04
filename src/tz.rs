@@ -1,8 +1,11 @@
-use chrono_tz::{TZ_VARIANTS, Tz};
+use chrono_tz::{Tz, TZ_VARIANTS};
 
 /// Converts a string containing a SkySpark time zone name into the matching
 /// `Tz` variant from the chrono_tz crate.
-pub fn skyspark_tz_string_to_tz<T>(s: T) -> Option<Tz> where T: AsRef<str> {
+pub fn skyspark_tz_string_to_tz<T>(s: T) -> Option<Tz>
+where
+    T: AsRef<str>,
+{
     let matching_tz = TZ_VARIANTS.iter().find(|tz| {
         let full_name = tz.name();
         let is_full_name_match = full_name == s.as_ref();

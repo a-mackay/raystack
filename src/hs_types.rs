@@ -6,6 +6,7 @@ use chrono::{NaiveDate, NaiveTime};
 use chrono_tz::Tz;
 use raystack_core::{FromHaysonError, Hayson};
 use serde_json::{json, Value};
+use std::convert::From;
 
 const KIND: &str = "_kind";
 
@@ -50,10 +51,12 @@ impl Hayson for Date {
 
                 match val.parse() {
                     Ok(naive_date) => Ok(Date::new(naive_date)),
-                    Err(_) => hayson_error("Date val string could not be parsed as a NaiveDate")
+                    Err(_) => hayson_error(
+                        "Date val string could not be parsed as a NaiveDate",
+                    ),
                 }
-            },
-            _ => hayson_error("Date JSON value must be an object")
+            }
+            _ => hayson_error("Date JSON value must be an object"),
         }
     }
 
@@ -62,6 +65,12 @@ impl Hayson for Date {
             KIND: "date",
             "val": self.naive_date().to_string(),
         })
+    }
+}
+
+impl From<NaiveDate> for Date {
+    fn from(d: NaiveDate) -> Self {
+        Self::new(d)
     }
 }
 
@@ -106,10 +115,12 @@ impl Hayson for Time {
 
                 match val.parse() {
                     Ok(naive_time) => Ok(Time::new(naive_time)),
-                    Err(_) => hayson_error("Time val string could not be parsed as a NaiveTime")
+                    Err(_) => hayson_error(
+                        "Time val string could not be parsed as a NaiveTime",
+                    ),
                 }
-            },
-            _ => hayson_error("Time JSON value must be an object")
+            }
+            _ => hayson_error("Time JSON value must be an object"),
         }
     }
 
@@ -121,6 +132,12 @@ impl Hayson for Time {
     }
 }
 
+impl From<NaiveTime> for Time {
+    fn from(t: NaiveTime) -> Self {
+        Self::new(t)
+    }
+}
+
 /// A Haystack DateTime.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DateTime {
@@ -129,9 +146,7 @@ pub struct DateTime {
 
 impl DateTime {
     pub fn new(date_time: chrono::DateTime<Tz>) -> Self {
-        Self {
-            date_time
-        }
+        Self { date_time }
     }
 
     pub fn date_time(&self) -> &chrono::DateTime<Tz> {
@@ -173,11 +188,15 @@ impl Hayson for DateTime {
                     match value {
                         Value::Null => {
                             tz_str = default_tz.to_owned();
-                        },
+                        }
                         Value::String(tz_string) => {
                             tz_str = tz_string.clone();
-                        },
-                        _ => return hayson_error("DateTime tz is not a null or a string")
+                        }
+                        _ => {
+                            return hayson_error(
+                                "DateTime tz is not a null or a string",
+                            )
+                        }
                     }
                 }
 
@@ -204,11 +223,13 @@ impl Hayson for DateTime {
                         } else {
                             hayson_error(format!("DateTime tz '{}' has no matching chrono_tz time zone", tz_str))
                         }
-                    },
-                    Err(_) => hayson_error("Time val string could not be parsed as a NaiveTime")
+                    }
+                    Err(_) => hayson_error(
+                        "Time val string could not be parsed as a NaiveTime",
+                    ),
                 }
-            },
-            _ => hayson_error("Time JSON value must be an object")
+            }
+            _ => hayson_error("Time JSON value must be an object"),
         }
     }
 
@@ -221,38 +242,53 @@ impl Hayson for DateTime {
     }
 }
 
-fn hayson_error<T, M>(message: M) -> Result<T, FromHaysonError> where M: AsRef<str> {
+impl From<chrono::DateTime<Tz>> for DateTime {
+    fn from(dt: chrono::DateTime<Tz>) -> Self {
+        Self::new(dt)
+    }
+}
+
+fn hayson_error<T, M>(message: M) -> Result<T, FromHaysonError>
+where
+    M: AsRef<str>,
+{
     Err(FromHaysonError::new(message.as_ref().to_owned()))
 }
 
-fn hayson_error_opt<M>(message: M) -> Option<FromHaysonError> where M: AsRef<str> {
+fn hayson_error_opt<M>(message: M) -> Option<FromHaysonError>
+where
+    M: AsRef<str>,
+{
     Some(FromHaysonError::new(message.as_ref().to_owned()))
 }
 
-fn hayson_check_kind(target_kind: &str, value: &Value) -> Option<FromHaysonError> {
+fn hayson_check_kind(
+    target_kind: &str,
+    value: &Value,
+) -> Option<FromHaysonError> {
     match value.get(KIND) {
-        Some(kind) => {
-            match kind {
-                Value::String(kind) => {
-                    if kind == target_kind {
-                        None
-                    } else {
-                        hayson_error_opt(format!("Expected '{}' = {} but found {}", KIND, kind, kind))
-                    }
-                },
-                _ => hayson_error_opt(format!("'{}' key is not a string", KIND))
+        Some(kind) => match kind {
+            Value::String(kind) => {
+                if kind == target_kind {
+                    None
+                } else {
+                    hayson_error_opt(format!(
+                        "Expected '{}' = {} but found {}",
+                        KIND, kind, kind
+                    ))
+                }
             }
+            _ => hayson_error_opt(format!("'{}' key is not a string", KIND)),
         },
         None => hayson_error_opt(format!("Missing '{}' key", KIND)),
     }
 }
 
-
 #[cfg(test)]
 mod test {
-    use raystack_core::Hayson;
-    use chrono::{NaiveDate, NaiveTime};
     use crate::{Date, DateTime, Time};
+    use chrono::{NaiveDate, NaiveTime};
+    use raystack_core::Hayson;
 
     #[test]
     fn serde_date_works() {
@@ -275,7 +311,10 @@ mod test {
     #[test]
     fn serde_date_time_works() {
         use chrono_tz::Tz;
-        let dt = chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z").unwrap().with_timezone(&Tz::GMT);
+        let dt =
+            chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z")
+                .unwrap()
+                .with_timezone(&Tz::GMT);
         let x = DateTime::new(dt);
         let value = x.to_hayson();
         let deserialized = DateTime::from_hayson(&value).unwrap();

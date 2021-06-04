@@ -102,13 +102,11 @@ impl Grid {
     }
 
     pub(crate) fn add_ref_to_meta(&mut self, hsref: &Ref) {
+        use raystack_core::Hayson;
         let meta = self.json["meta"]
             .as_object_mut()
             .expect("meta is a JSON Object");
-        meta.insert(
-            "id".to_owned(),
-            Value::String(hsref.to_encoded_json_string()),
-        );
+        meta.insert("id".to_owned(), hsref.to_hayson());
     }
 
     /// Return a vector of JSON values which represent the columns of the grid.
