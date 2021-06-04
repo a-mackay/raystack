@@ -364,15 +364,15 @@ impl SkySparkClient {
     pub async fn his_write_bool(
         &mut self,
         id: &Ref,
-        his_data: &[(chrono::DateTime<Tz>, bool)],
+        his_data: &[(DateTime, bool)],
     ) -> Result<Grid> {
-        use api::to_zinc_encoded_string;
+        use raystack_core::Hayson;
 
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
                 json!({
-                    "ts": format!("t:{}", to_zinc_encoded_string(date_time)),
+                    "ts": date_time.to_hayson(),
                     "val": value
                 })
             })
@@ -410,15 +410,15 @@ impl SkySparkClient {
     pub async fn his_write_str(
         &mut self,
         id: &Ref,
-        his_data: &[(chrono::DateTime<Tz>, String)],
+        his_data: &[(DateTime, String)],
     ) -> Result<Grid> {
-        use api::to_zinc_encoded_string;
+        use raystack_core::Hayson;
 
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
                 json!({
-                    "ts": format!("t:{}", to_zinc_encoded_string(date_time)),
+                    "ts": date_time.to_hayson(),
                     "val": value
                 })
             })
@@ -436,13 +436,18 @@ impl SkySparkClient {
         time_zone_name: &str,
         his_data: &[(chrono::DateTime<Utc>, bool)],
     ) -> Result<Grid> {
-        use api::utc_to_zinc_encoded_string;
+        use raystack_core::Hayson;
+
+        let tz = skyspark_tz_string_to_tz(time_zone_name).ok_or_else(|| {
+            Error::TimeZone { err_time_zone: time_zone_name.to_owned() }
+        })?;
 
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
+                let date_time: DateTime = date_time.with_timezone(&tz).into();
                 json!({
-                    "ts": format!("t:{}", utc_to_zinc_encoded_string(date_time, time_zone_name)),
+                    "ts": date_time.to_hayson(),
                     "val": value
                 })
             })
@@ -458,22 +463,22 @@ impl SkySparkClient {
         &mut self,
         id: &Ref,
         time_zone_name: &str,
-        his_data: &[(chrono::DateTime<Utc>, f64)],
-        unit: Option<&str>,
+        his_data: &[(chrono::DateTime<Utc>, Number)],
     ) -> Result<Grid> {
-        use api::utc_to_zinc_encoded_string;
+        use raystack_core::Hayson;
+
+        let tz = skyspark_tz_string_to_tz(time_zone_name).ok_or_else(|| {
+            Error::TimeZone { err_time_zone: time_zone_name.to_owned() }
+        })?;
 
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
-                let value_string = match unit {
-                    Some(unit) => format!("n:{} {}", value, unit),
-                    None => format!("n:{}", value),
-                };
+                let date_time: DateTime = date_time.with_timezone(&tz).into();
 
                 json!({
-                    "ts": format!("t:{}", utc_to_zinc_encoded_string(date_time, time_zone_name)),
-                    "val": value_string
+                    "ts": date_time.to_hayson(),
+                    "val": value.to_hayson(),
                 })
             })
             .collect();
@@ -490,14 +495,20 @@ impl SkySparkClient {
         time_zone_name: &str,
         his_data: &[(chrono::DateTime<Utc>, String)],
     ) -> Result<Grid> {
-        use api::utc_to_zinc_encoded_string;
+        use raystack_core::Hayson;
+
+        let tz = skyspark_tz_string_to_tz(time_zone_name).ok_or_else(|| {
+            Error::TimeZone { err_time_zone: time_zone_name.to_owned() }
+        })?;
 
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
+                let date_time: DateTime = date_time.with_timezone(&tz).into();
+
                 json!({
-                    "ts": format!("t:{}", utc_to_zinc_encoded_string(date_time, time_zone_name)),
-                    "val": value
+                    "ts": date_time.to_hayson(),
+                    "val": value,
                 })
             })
             .collect();
@@ -815,7 +826,7 @@ mod test {
         )
         .await;
         let his_data =
-            vec![(date_time1, true), (date_time2, false), (date_time3, true)];
+            vec![(date_time1.into(), true), (date_time2.into(), false), (date_time3.into(), true)];
 
         let res = client.his_write_bool(&id, &his_data[..]).await.unwrap();
         assert_eq!(res.rows().len(), 0);
@@ -823,7 +834,7 @@ mod test {
 
     #[tokio::test]
     async fn utc_his_write_num() {
-        use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+        use chrono::{Duration, NaiveDateTime, Utc};
 
         let ndt = NaiveDateTime::parse_from_str(
             "2021-01-10 00:00:00",
@@ -831,7 +842,7 @@ mod test {
         )
         .unwrap();
 
-        let date_time1 = DateTime::from_utc(ndt, Utc);
+        let date_time1: chrono::DateTime<Utc> = chrono::DateTime::from_utc(ndt, Utc);
         let date_time2 = date_time1 + Duration::minutes(5);
         let date_time3 = date_time1 + Duration::minutes(10);
 
@@ -842,14 +853,17 @@ mod test {
             "continuousIntegrationHisWritePoint and kind == \"Number\" and unit",
         )
         .await;
+
+        let unit = Some("L/s".to_owned());
+
         let his_data = vec![
-            (date_time1, 111.111),
-            (date_time2, 222.222),
-            (date_time3, 333.333),
+            (date_time1, Number::new(111.111, unit.clone())),
+            (date_time2, Number::new(222.222, unit.clone())),
+            (date_time3, Number::new(333.333, unit.clone())),
         ];
 
         let res = client
-            .utc_his_write_num(&id, "Sydney", &his_data[..], Some("L/s"))
+            .utc_his_write_num(&id, "Sydney", &his_data[..])
             .await
             .unwrap();
         assert_eq!(res.rows().len(), 0);
@@ -889,7 +903,7 @@ mod test {
 
     #[tokio::test]
     async fn utc_his_write_num_no_unit() {
-        use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+        use chrono::{Duration, NaiveDateTime, Utc};
 
         let ndt = NaiveDateTime::parse_from_str(
             "2021-01-10 00:00:00",
@@ -897,7 +911,7 @@ mod test {
         )
         .unwrap();
 
-        let date_time1 = DateTime::from_utc(ndt, Utc);
+        let date_time1: chrono::DateTime<Utc> = chrono::DateTime::from_utc(ndt, Utc);
         let date_time2 = date_time1 + Duration::minutes(5);
         let date_time3 = date_time1 + Duration::minutes(10);
 
@@ -909,13 +923,13 @@ mod test {
         )
         .await;
         let his_data = vec![
-            (date_time1, 11.11),
-            (date_time2, 22.22),
-            (date_time3, 33.33),
+            (date_time1, Number::new_unitless(11.11)),
+            (date_time2, Number::new_unitless(22.22)),
+            (date_time3, Number::new_unitless(33.33)),
         ];
 
         let res = client
-            .utc_his_write_num(&id, "Sydney", &his_data[..], None)
+            .utc_his_write_num(&id, "Sydney", &his_data[..])
             .await
             .unwrap();
         assert_eq!(res.rows().len(), 0);
@@ -1005,9 +1019,9 @@ mod test {
         .await;
 
         let his_data = vec![
-            (date_time1, "hello".to_owned()),
-            (date_time2, "world".to_owned()),
-            (date_time3, "!".to_owned()),
+            (date_time1.into(), "hello".to_owned()),
+            (date_time2.into(), "world".to_owned()),
+            (date_time3.into(), "!".to_owned()),
         ];
 
         let res = client.his_write_str(&id, &his_data[..]).await.unwrap();
