@@ -6,7 +6,12 @@
 ![Audit Status](https://github.com/a-mackay/raystack/workflows/audit/badge.svg)
 
 
-A SkySpark 3 client library for Rust.
+A SkySpark 3 client library for Rust, compatible with SkySpark versions 3.0.28 or higher.
+
+For SkySpark versions before 3.0.28, use version `0.8.*` of this library. Newer versions
+of SkySpark use [Hayson encoding](https://github.com/j2inn/hayson), which this library
+supports. The older versions of SkySpark used a different JSON encoding which is no
+longer supported by this library.
 
 ## Documentation
 See [docs.rs](https://docs.rs/raystack).
@@ -22,14 +27,14 @@ See [docs.rs](https://docs.rs/raystack).
 ===============================================================================
  Language            Files        Lines         Code     Comments       Blanks
 ===============================================================================
- Markdown                1           38            0           30            8
+ Markdown                1           43            0           34            9
  TOML                    2           31           25            0            6
 -------------------------------------------------------------------------------
- Rust                    9         3205         2704           31          470
- |- Markdown             7          329           64          241           24
- (Total)                           3534         2768          272          494
+ Rust                   11         3531         2956           30          545
+ |- Markdown             9          348           64          260           24
+ (Total)                           3879         3020          290          569
 ===============================================================================
- Total                  12         3603         2793          302          508
+ Total                  14         3605         2981           64          560
 ===============================================================================
 ```
 
