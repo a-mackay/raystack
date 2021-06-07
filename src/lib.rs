@@ -351,8 +351,9 @@ impl SkySparkClient {
         id: &Ref,
         range: &HisReadRange,
     ) -> Result<Grid> {
+        use raystack_core::Hayson;
         let row = json!({
-            "id": id.to_encoded_json_string(),
+            "id": id.to_hayson(),
             "range": range.to_json_request_string()
         });
         let req_grid = Grid::new_internal(vec![row]);
@@ -438,7 +439,9 @@ impl SkySparkClient {
         use raystack_core::Hayson;
 
         let tz = skyspark_tz_string_to_tz(time_zone_name).ok_or_else(|| {
-            Error::TimeZone { err_time_zone: time_zone_name.to_owned() }
+            Error::TimeZone {
+                err_time_zone: time_zone_name.to_owned(),
+            }
         })?;
 
         let rows = his_data
@@ -467,7 +470,9 @@ impl SkySparkClient {
         use raystack_core::Hayson;
 
         let tz = skyspark_tz_string_to_tz(time_zone_name).ok_or_else(|| {
-            Error::TimeZone { err_time_zone: time_zone_name.to_owned() }
+            Error::TimeZone {
+                err_time_zone: time_zone_name.to_owned(),
+            }
         })?;
 
         let rows = his_data
@@ -497,7 +502,9 @@ impl SkySparkClient {
         use raystack_core::Hayson;
 
         let tz = skyspark_tz_string_to_tz(time_zone_name).ok_or_else(|| {
-            Error::TimeZone { err_time_zone: time_zone_name.to_owned() }
+            Error::TimeZone {
+                err_time_zone: time_zone_name.to_owned(),
+            }
         })?;
 
         let rows = his_data
@@ -689,15 +696,16 @@ mod test {
 
     #[tokio::test]
     async fn his_read_date() {
-        let range = HisReadRange::Date(chrono::NaiveDate::from_ymd(2019, 1, 1));
+        let range =
+            HisReadRange::Date(chrono::NaiveDate::from_ymd(2019, 1, 1).into());
         his_read(&range).await;
     }
 
     #[tokio::test]
     async fn his_read_date_span() {
         let range = HisReadRange::DateSpan {
-            start: chrono::NaiveDate::from_ymd(2019, 1, 1),
-            end: chrono::NaiveDate::from_ymd(2019, 1, 2),
+            start: chrono::NaiveDate::from_ymd(2019, 1, 1).into(),
+            end: chrono::NaiveDate::from_ymd(2019, 1, 2).into(),
         };
         his_read(&range).await;
     }
@@ -711,7 +719,10 @@ mod test {
             .unwrap()
             .with_timezone(&Sydney);
         let end = start + Duration::days(1);
-        let range = HisReadRange::DateTimeSpan { start, end };
+        let range = HisReadRange::DateTimeSpan {
+            start: start.into(),
+            end: end.into(),
+        };
         his_read(&range).await;
     }
 
@@ -724,7 +735,9 @@ mod test {
             DateTime::parse_from_rfc3339("2012-10-01T00:00:00+10:00")
                 .unwrap()
                 .with_timezone(&Sydney);
-        let range = HisReadRange::SinceDateTime { date_time };
+        let range = HisReadRange::SinceDateTime {
+            date_time: date_time.into(),
+        };
         his_read(&range).await;
     }
 
@@ -736,7 +749,9 @@ mod test {
         let date_time = DateTime::parse_from_rfc3339("2012-10-01T00:00:00Z")
             .unwrap()
             .with_timezone(&UTC);
-        let range = HisReadRange::SinceDateTime { date_time };
+        let range = HisReadRange::SinceDateTime {
+            date_time: date_time.into(),
+        };
         his_read(&range).await;
     }
 
@@ -746,12 +761,11 @@ mod test {
         let mut client = new_client().await;
         let points_grid = client.read(&filter, Some(1)).await.unwrap();
 
-        let point_ref_str = points_grid.rows()[0]["id"].as_str().unwrap();
-        let point_ref = Ref::from_encoded_json_string(&point_ref_str).unwrap();
+        let point_ref = points_grid.rows()[0]["id"].as_hs_ref().unwrap();
         let his_grid = client.his_read(&point_ref, &range).await.unwrap();
 
-        assert!(his_grid.meta()["hisStart"].is_string());
-        assert!(his_grid.meta()["hisEnd"].is_string());
+        assert!(his_grid.meta()["hisStart"].is_hs_date_time());
+        assert!(his_grid.meta()["hisEnd"].is_hs_date_time());
     }
 
     async fn get_ref_for_filter(
@@ -816,8 +830,11 @@ mod test {
             "continuousIntegrationHisWritePoint and kind == \"Bool\"",
         )
         .await;
-        let his_data =
-            vec![(date_time1.into(), true), (date_time2.into(), false), (date_time3.into(), true)];
+        let his_data = vec![
+            (date_time1.into(), true),
+            (date_time2.into(), false),
+            (date_time3.into(), true),
+        ];
 
         let res = client.his_write_bool(&id, &his_data[..]).await.unwrap();
         assert_eq!(res.rows().len(), 0);
@@ -833,7 +850,8 @@ mod test {
         )
         .unwrap();
 
-        let date_time1: chrono::DateTime<Utc> = chrono::DateTime::from_utc(ndt, Utc);
+        let date_time1: chrono::DateTime<Utc> =
+            chrono::DateTime::from_utc(ndt, Utc);
         let date_time2 = date_time1 + Duration::minutes(5);
         let date_time3 = date_time1 + Duration::minutes(10);
 
@@ -902,7 +920,8 @@ mod test {
         )
         .unwrap();
 
-        let date_time1: chrono::DateTime<Utc> = chrono::DateTime::from_utc(ndt, Utc);
+        let date_time1: chrono::DateTime<Utc> =
+            chrono::DateTime::from_utc(ndt, Utc);
         let date_time2 = date_time1 + Duration::minutes(5);
         let date_time3 = date_time1 + Duration::minutes(10);
 

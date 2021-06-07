@@ -161,11 +161,14 @@ impl DateTime {
         self.date_time.timezone().name()
     }
 
-    /// Return the Olsen timezone database city name of the time zone.
-    pub fn olsen_time_zone(&self) -> Option<&str> {
-        let parts = self.time_zone().split("/");
-        let city = parts.skip(1).next();
-        city
+    /// Return the Olsen timezone database city name of the time zone. These
+    /// city names should match with the short time zone names used in
+    /// SkySpark.
+    pub fn olsen_time_zone(&self) -> &str {
+        let full_tz = self.time_zone();
+        let parts: Vec<_> =
+            full_tz.split("/").filter(|s| !s.is_empty()).collect();
+        parts.last().expect("time zone parts should not be empty")
     }
 }
 

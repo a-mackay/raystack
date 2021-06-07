@@ -159,7 +159,7 @@ pub enum EvalError {
     TimeZone {
         /// The time zone which caused this error.
         err_time_zone: String,
-    }
+    },
 }
 
 impl std::convert::From<crate::Error> for EvalError {
@@ -168,7 +168,9 @@ impl std::convert::From<crate::Error> for EvalError {
             crate::Error::Grid { err_grid } => Self::Grid { err_grid },
             crate::Error::Http { err } => Self::Http(err),
             crate::Error::ParseJsonGrid(err) => Self::ParseJsonGrid(err),
-            crate::Error::TimeZone { err_time_zone } => Self::TimeZone { err_time_zone },
+            crate::Error::TimeZone { err_time_zone } => {
+                Self::TimeZone { err_time_zone }
+            }
             crate::Error::UpdateAuthToken(_) => unreachable!(), // The standalone eval function will not update auth tokens.
         }
     }

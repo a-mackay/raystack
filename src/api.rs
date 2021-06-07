@@ -1,12 +1,13 @@
 use crate::grid::Grid;
 use crate::Error;
-use chrono::{DateTime, NaiveDate, SecondsFormat, Utc};
-use chrono_tz::Tz;
+use crate::{Date, DateTime};
+use chrono::{SecondsFormat, Utc};
 use raystack_core::Ref;
 use url::Url;
 
 /// Provides functions which correspond to some Haystack REST API operations.
 trait HaystackRest {
+    // TODO?
     /// Returns a grid containing basic server information.
     fn about(&self) -> Result<Grid, Error>;
     /// Returns a grid describing what MIME types are available.
@@ -17,20 +18,20 @@ trait HaystackRest {
     fn his_write_bool(
         &self,
         id: &Ref,
-        his_data: &[(DateTime<Tz>, bool)],
+        his_data: &[(DateTime, bool)],
     ) -> Result<Grid, Error>;
     /// Writes string values to a single point.
     fn his_write_str(
         &self,
         id: &Ref,
-        his_data: &[(DateTime<Tz>, String)],
+        his_data: &[(DateTime, String)],
     ) -> Result<Grid, Error>;
     /// Writes numeric values to a single point. `unit` must be a valid
     /// Haystack unit literal, such as `L/s` or `celsius`.
     fn his_write_num(
         &self,
         id: &Ref,
-        his_data: &[(DateTime<Tz>, f64)],
+        his_data: &[(DateTime, f64)],
         unit: &str,
     ) -> Result<Grid, Error>;
     /// Writes boolean values with UTC timestamps to a single point.
@@ -39,7 +40,7 @@ trait HaystackRest {
         &self,
         id: &Ref,
         time_zone_name: &str,
-        his_data: &[(DateTime<Utc>, bool)],
+        his_data: &[(chrono::DateTime<Utc>, bool)],
     ) -> Result<Grid, Error>;
     /// Writes string values with UTC timestamps to a single point.
     /// `time_zone_name` must be a valid SkySpark timezone name.
@@ -47,7 +48,7 @@ trait HaystackRest {
         &self,
         id: &Ref,
         time_zone_name: &str,
-        his_data: &[(DateTime<Utc>, String)],
+        his_data: &[(chrono::DateTime<Utc>, String)],
     ) -> Result<Grid, Error>;
     /// Writes numeric values with UTC timestamps to a single point.
     /// `unit` must be a valid Haystack unit literal, such as `L/s` or
@@ -57,7 +58,7 @@ trait HaystackRest {
         &self,
         id: &Ref,
         time_zone_name: &str,
-        his_data: &[(DateTime<Utc>, f64)],
+        his_data: &[(chrono::DateTime<Utc>, f64)],
         unit: &str,
     ) -> Result<Grid, Error>;
     /// The Haystack nav operation.
@@ -98,16 +99,13 @@ pub enum HisReadRange {
     /// Query for history values from yesterday.
     Yesterday,
     /// Query for history values on a particular date.
-    Date(NaiveDate),
+    Date(Date),
     /// Query for history values between two dates.
-    DateSpan { start: NaiveDate, end: NaiveDate },
+    DateSpan { start: Date, end: Date },
     /// Query for history values between two datetimes.
-    DateTimeSpan {
-        start: DateTime<Tz>,
-        end: DateTime<Tz>,
-    },
+    DateTimeSpan { start: DateTime, end: DateTime },
     /// Query for history values since a particular datetime.
-    SinceDateTime { date_time: DateTime<Tz> },
+    SinceDateTime { date_time: DateTime },
 }
 
 const DATE_FMT: &str = "%Y-%m-%d";
@@ -117,9 +115,13 @@ impl HisReadRange {
         match self {
             Self::Today => "today".to_owned(),
             Self::Yesterday => "yesterday".to_owned(),
-            Self::Date(date) => date.format(DATE_FMT).to_string(),
+            Self::Date(date) => date.naive_date().format(DATE_FMT).to_string(),
             Self::DateSpan { start, end } => {
-                format!("{},{}", start.format(DATE_FMT), end.format(DATE_FMT))
+                format!(
+                    "{},{}",
+                    start.naive_date().format(DATE_FMT),
+                    end.naive_date().format(DATE_FMT)
+                )
             }
             Self::DateTimeSpan { start, end } => {
                 let start_str = to_zinc_encoded_string(&start);
@@ -134,17 +136,13 @@ impl HisReadRange {
 }
 
 /// Convert a `DateTime` into a string which can be used in ZINC files.
-pub(crate) fn to_zinc_encoded_string(date_time: &DateTime<Tz>) -> String {
-    let time_zone_name = *date_time
-        .timezone()
-        .name()
-        .split('/')
-        .collect::<Vec<_>>()
-        .last()
-        .expect("timezone name is always formatted as Area/Location");
+fn to_zinc_encoded_string(date_time: &DateTime) -> String {
+    let time_zone_name = date_time.olsen_time_zone();
     format!(
         "{} {}",
-        date_time.to_rfc3339_opts(SecondsFormat::Secs, true),
+        date_time
+            .date_time()
+            .to_rfc3339_opts(SecondsFormat::Secs, true),
         time_zone_name,
     )
 }
