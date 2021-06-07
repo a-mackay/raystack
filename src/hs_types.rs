@@ -348,24 +348,24 @@ mod test {
     #[test]
     fn short_time_zone_works() {
         let dt: DateTime =
-        chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z")
-            .unwrap()
-            .with_timezone(&Tz::America__North_Dakota__Beulah)
-            .into();
+            chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z")
+                .unwrap()
+                .with_timezone(&Tz::America__North_Dakota__Beulah)
+                .into();
         assert_eq!(dt.short_time_zone(), "Beulah");
 
         let dt: DateTime =
-        chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z")
-            .unwrap()
-            .with_timezone(&Tz::GMT)
-            .into();
+            chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z")
+                .unwrap()
+                .with_timezone(&Tz::GMT)
+                .into();
         assert_eq!(dt.short_time_zone(), "GMT");
 
         let dt: DateTime =
-        chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z")
-            .unwrap()
-            .with_timezone(&Tz::Australia__Sydney)
-            .into();
+            chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z")
+                .unwrap()
+                .with_timezone(&Tz::Australia__Sydney)
+                .into();
         assert_eq!(dt.short_time_zone(), "Sydney");
     }
 }
