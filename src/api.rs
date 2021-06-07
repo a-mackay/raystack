@@ -59,7 +59,7 @@ impl HisReadRange {
 
 /// Convert a `DateTime` into a string which can be used in ZINC files.
 fn to_zinc_encoded_string(date_time: &DateTime) -> String {
-    let time_zone_name = date_time.olsen_time_zone();
+    let time_zone_name = date_time.short_time_zone();
     format!(
         "{} {}",
         date_time

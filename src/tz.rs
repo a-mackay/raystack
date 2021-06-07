@@ -13,15 +13,19 @@ where
         if is_full_name_match {
             true
         } else {
-            if let Some(short_name) = full_name.split("/").skip(1).next() {
-                // If the Tz name is in the format "RegionName/CityName":
-                short_name == s.as_ref()
-            } else {
-                false
-            }
+            let short_name = time_zone_name_to_short_name(full_name);
+            short_name == s.as_ref()
         }
     });
     matching_tz.map(|tz| tz.clone())
+}
+
+/// Given an IANA TZDB identifier like  "America/New_York", return the
+/// short time zone name used by SkySpark (like "New_York").
+pub(crate) fn time_zone_name_to_short_name(tz_name: &str) -> &str {
+    let parts: Vec<_> =
+        tz_name.split("/").filter(|s| !s.is_empty()).collect();
+    parts.last().expect("time zone parts should not be empty")
 }
 
 #[cfg(test)]

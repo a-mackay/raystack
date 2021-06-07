@@ -161,14 +161,11 @@ impl DateTime {
         self.date_time.timezone().name()
     }
 
-    /// Return the Olsen timezone database city name of the time zone. These
-    /// city names should match with the short time zone names used in
+    /// Return the short name of the time zone. These
+    /// names should match with the shortened time zone names used in
     /// SkySpark.
-    pub fn olsen_time_zone(&self) -> &str {
-        let full_tz = self.time_zone();
-        let parts: Vec<_> =
-            full_tz.split("/").filter(|s| !s.is_empty()).collect();
-        parts.last().expect("time zone parts should not be empty")
+    pub fn short_time_zone(&self) -> &str {
+        crate::tz::time_zone_name_to_short_name(self.time_zone())
     }
 }
 
@@ -240,7 +237,7 @@ impl Hayson for DateTime {
         json!({
             KIND: "dateTime",
             "val": self.date_time().to_rfc3339(),
-            "tz": self.olsen_time_zone(),
+            "tz": self.short_time_zone(),
         })
     }
 }
@@ -291,6 +288,7 @@ fn hayson_check_kind(
 mod test {
     use crate::{Date, DateTime, Time};
     use chrono::{NaiveDate, NaiveTime};
+    use chrono_tz::Tz;
     use raystack_core::Hayson;
 
     #[test]
@@ -313,7 +311,6 @@ mod test {
 
     #[test]
     fn serde_date_time_works() {
-        use chrono_tz::Tz;
         let dt =
             chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z")
                 .unwrap()
@@ -324,5 +321,51 @@ mod test {
         assert_eq!(x, deserialized);
     }
 
-    // TODO more tests for serde datetime
+    #[test]
+    fn serde_date_time_with_one_slash_tz_works() {
+        let dt =
+            chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z")
+                .unwrap()
+                .with_timezone(&Tz::Australia__Sydney);
+        let x = DateTime::new(dt);
+        let value = x.to_hayson();
+        let deserialized = DateTime::from_hayson(&value).unwrap();
+        assert_eq!(x, deserialized);
+    }
+
+    #[test]
+    fn serde_date_time_with_multiple_slashes_tz_works() {
+        let dt =
+            chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z")
+                .unwrap()
+                .with_timezone(&Tz::America__North_Dakota__Beulah);
+        let x = DateTime::new(dt);
+        let value = x.to_hayson();
+        let deserialized = DateTime::from_hayson(&value).unwrap();
+        assert_eq!(x, deserialized);
+    }
+
+    #[test]
+    fn short_time_zone_works() {
+        let dt: DateTime =
+        chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z")
+            .unwrap()
+            .with_timezone(&Tz::America__North_Dakota__Beulah)
+            .into();
+        assert_eq!(dt.short_time_zone(), "Beulah");
+
+        let dt: DateTime =
+        chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z")
+            .unwrap()
+            .with_timezone(&Tz::GMT)
+            .into();
+        assert_eq!(dt.short_time_zone(), "GMT");
+
+        let dt: DateTime =
+        chrono::DateTime::parse_from_rfc3339("2021-01-01T18:30:09.453Z")
+            .unwrap()
+            .with_timezone(&Tz::Australia__Sydney)
+            .into();
+        assert_eq!(dt.short_time_zone(), "Sydney");
+    }
 }
