@@ -43,22 +43,25 @@ pub mod auth;
 mod err;
 pub mod eval;
 mod grid;
+mod hs_types;
+mod tz;
 mod value_ext;
 
 use api::HaystackUrl;
 pub use api::HisReadRange;
-use chrono::{DateTime, Utc};
-use chrono_tz::Tz;
+use chrono::Utc;
 pub use err::{Error, NewClientSeedError, NewSkySparkClientError};
 pub use grid::{Grid, ParseJsonGridError};
+pub use hs_types::{Date, DateTime, Time};
 pub use raystack_core::Coord;
+pub use raystack_core::Number;
 pub use raystack_core::{is_tag_name, ParseTagNameError, TagName};
-pub use raystack_core::{Number, NumberValue, ParseNumberError};
+pub use raystack_core::{Marker, Na, RemoveMarker, Symbol, Uri, Xstr};
 pub use raystack_core::{ParseRefError, Ref};
 use reqwest::Client as ReqwestClient;
 use serde_json::json;
 use std::convert::TryInto;
-use thiserror::Error;
+pub use tz::skyspark_tz_string_to_tz;
 use url::Url;
 pub use value_ext::ValueExt;
 
@@ -334,21 +337,25 @@ pub(crate) fn add_backslash_if_necessary(url: Url) -> Url {
 }
 
 impl SkySparkClient {
+    /// Returns a grid containing basic server information.
     pub async fn about(&mut self) -> Result<Grid> {
         self.get(self.about_url()).await
     }
 
+    /// Returns a grid describing what MIME types are available.
     pub async fn formats(&mut self) -> Result<Grid> {
         self.get(self.formats_url()).await
     }
 
+    /// Returns a grid of history data for a single point.
     pub async fn his_read(
         &mut self,
         id: &Ref,
         range: &HisReadRange,
     ) -> Result<Grid> {
+        use raystack_core::Hayson;
         let row = json!({
-            "id": id.to_encoded_json_string(),
+            "id": id.to_hayson(),
             "range": range.to_json_request_string()
         });
         let req_grid = Grid::new_internal(vec![row]);
@@ -356,18 +363,19 @@ impl SkySparkClient {
         self.post(self.his_read_url(), &req_grid).await
     }
 
+    /// Writes boolean values to a single point.
     pub async fn his_write_bool(
         &mut self,
         id: &Ref,
-        his_data: &[(DateTime<Tz>, bool)],
+        his_data: &[(DateTime, bool)],
     ) -> Result<Grid> {
-        use api::to_zinc_encoded_string;
+        use raystack_core::Hayson;
 
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
                 json!({
-                    "ts": format!("t:{}", to_zinc_encoded_string(date_time)),
+                    "ts": date_time.to_hayson(),
                     "val": value
                 })
             })
@@ -379,25 +387,21 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
+    /// Writes numeric values to a single point. `unit` must be a valid
+    /// Haystack unit literal, such as `L/s` or `celsius`.
     pub async fn his_write_num(
         &mut self,
         id: &Ref,
-        his_data: &[(DateTime<Tz>, f64)],
-        unit: Option<&str>,
+        his_data: &[(DateTime, Number)],
     ) -> Result<Grid> {
-        use api::to_zinc_encoded_string;
+        use raystack_core::Hayson;
 
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
-                let value_string = match unit {
-                    Some(unit) => format!("n:{} {}", value, unit),
-                    None => format!("n:{}", value),
-                };
-
                 json!({
-                    "ts": format!("t:{}", to_zinc_encoded_string(date_time)),
-                    "val": value_string
+                    "ts": date_time.to_hayson(),
+                    "val": value.to_hayson(),
                 })
             })
             .collect();
@@ -408,18 +412,19 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
+    /// Writes string values to a single point.
     pub async fn his_write_str(
         &mut self,
         id: &Ref,
-        his_data: &[(DateTime<Tz>, String)],
+        his_data: &[(DateTime, String)],
     ) -> Result<Grid> {
-        use api::to_zinc_encoded_string;
+        use raystack_core::Hayson;
 
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
                 json!({
-                    "ts": format!("t:{}", to_zinc_encoded_string(date_time)),
+                    "ts": date_time.to_hayson(),
                     "val": value
                 })
             })
@@ -431,19 +436,28 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
+    /// Writes boolean values with UTC timestamps to a single point.
+    /// `time_zone_name` must be a valid SkySpark timezone name.
     pub async fn utc_his_write_bool(
         &mut self,
         id: &Ref,
         time_zone_name: &str,
-        his_data: &[(DateTime<Utc>, bool)],
+        his_data: &[(chrono::DateTime<Utc>, bool)],
     ) -> Result<Grid> {
-        use api::utc_to_zinc_encoded_string;
+        use raystack_core::Hayson;
+
+        let tz = skyspark_tz_string_to_tz(time_zone_name).ok_or_else(|| {
+            Error::TimeZone {
+                err_time_zone: time_zone_name.to_owned(),
+            }
+        })?;
 
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
+                let date_time: DateTime = date_time.with_timezone(&tz).into();
                 json!({
-                    "ts": format!("t:{}", utc_to_zinc_encoded_string(date_time, time_zone_name)),
+                    "ts": date_time.to_hayson(),
                     "val": value
                 })
             })
@@ -455,26 +469,32 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
+    /// Writes numeric values with UTC timestamps to a single point.
+    /// `unit` must be a valid Haystack unit literal, such as `L/s` or
+    /// `celsius`.
+    /// `time_zone_name` must be a valid SkySpark timezone name.
     pub async fn utc_his_write_num(
         &mut self,
         id: &Ref,
         time_zone_name: &str,
-        his_data: &[(DateTime<Utc>, f64)],
-        unit: Option<&str>,
+        his_data: &[(chrono::DateTime<Utc>, Number)],
     ) -> Result<Grid> {
-        use api::utc_to_zinc_encoded_string;
+        use raystack_core::Hayson;
+
+        let tz = skyspark_tz_string_to_tz(time_zone_name).ok_or_else(|| {
+            Error::TimeZone {
+                err_time_zone: time_zone_name.to_owned(),
+            }
+        })?;
 
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
-                let value_string = match unit {
-                    Some(unit) => format!("n:{} {}", value, unit),
-                    None => format!("n:{}", value),
-                };
+                let date_time: DateTime = date_time.with_timezone(&tz).into();
 
                 json!({
-                    "ts": format!("t:{}", utc_to_zinc_encoded_string(date_time, time_zone_name)),
-                    "val": value_string
+                    "ts": date_time.to_hayson(),
+                    "val": value.to_hayson(),
                 })
             })
             .collect();
@@ -485,20 +505,30 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
+    /// Writes string values with UTC timestamps to a single point.
+    /// `time_zone_name` must be a valid SkySpark timezone name.
     pub async fn utc_his_write_str(
         &mut self,
         id: &Ref,
         time_zone_name: &str,
-        his_data: &[(DateTime<Utc>, String)],
+        his_data: &[(chrono::DateTime<Utc>, String)],
     ) -> Result<Grid> {
-        use api::utc_to_zinc_encoded_string;
+        use raystack_core::Hayson;
+
+        let tz = skyspark_tz_string_to_tz(time_zone_name).ok_or_else(|| {
+            Error::TimeZone {
+                err_time_zone: time_zone_name.to_owned(),
+            }
+        })?;
 
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
+                let date_time: DateTime = date_time.with_timezone(&tz).into();
+
                 json!({
-                    "ts": format!("t:{}", utc_to_zinc_encoded_string(date_time, time_zone_name)),
-                    "val": value
+                    "ts": date_time.to_hayson(),
+                    "val": value,
                 })
             })
             .collect();
@@ -509,10 +539,12 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
-    pub async fn nav(&mut self, nav_id: Option<&str>) -> Result<Grid> {
+    /// The Haystack nav operation.
+    pub async fn nav(&mut self, nav_id: Option<&Ref>) -> Result<Grid> {
+        use raystack_core::Hayson;
         let req_grid = match nav_id {
             Some(nav_id) => {
-                let row = json!({ "navId": nav_id });
+                let row = json!({ "navId": nav_id.to_hayson() });
                 Grid::new_internal(vec![row])
             }
             None => Grid::new_internal(Vec::new()),
@@ -521,10 +553,13 @@ impl SkySparkClient {
         self.post(self.nav_url(), &req_grid).await
     }
 
+    /// Returns a grid containing the operations available on the server.
     pub async fn ops(&mut self) -> Result<Grid> {
         self.get(self.ops_url()).await
     }
 
+    /// Returns a grid containing the records matching the given Axon
+    /// filter string.
     pub async fn read(
         &mut self,
         filter: &str,
@@ -532,18 +567,18 @@ impl SkySparkClient {
     ) -> Result<Grid> {
         let row = match limit {
             Some(integer) => json!({"filter": filter, "limit": integer}),
-            None => json!({"filter": filter, "limit": "N"}),
+            None => json!({ "filter": filter }),
         };
 
         let req_grid = Grid::new_internal(vec![row]);
         self.post(self.read_url(), &req_grid).await
     }
 
+    /// Returns a grid containing the records matching the given id
+    /// `Ref`s.
     pub async fn read_by_ids(&mut self, ids: &[Ref]) -> Result<Grid> {
-        let rows = ids
-            .iter()
-            .map(|id| json!({"id": id.to_encoded_json_string()}))
-            .collect();
+        use raystack_core::Hayson;
+        let rows = ids.iter().map(|id| json!({"id": id.to_hayson()})).collect();
 
         let req_grid = Grid::new_internal(rows);
         self.post(self.read_url(), &req_grid).await
@@ -588,9 +623,7 @@ impl SkySparkClient {
     }
 }
 
-pub(crate) async fn http_response_to_grid(
-    res: reqwest::Response,
-) -> Result<Grid> {
+async fn http_response_to_grid(res: reqwest::Response) -> Result<Grid> {
     let json: serde_json::Value = res.json().await?;
     let grid: Grid = json.try_into()?;
 
@@ -625,7 +658,8 @@ mod test {
     use crate::api::HisReadRange;
     use crate::ClientSeed;
     use crate::SkySparkClient;
-    use raystack_core::Ref;
+    use crate::ValueExt;
+    use raystack_core::{Number, Ref};
     use serde_json::json;
     use url::Url;
 
@@ -680,15 +714,16 @@ mod test {
 
     #[tokio::test]
     async fn his_read_date() {
-        let range = HisReadRange::Date(chrono::NaiveDate::from_ymd(2019, 1, 1));
+        let range =
+            HisReadRange::Date(chrono::NaiveDate::from_ymd(2019, 1, 1).into());
         his_read(&range).await;
     }
 
     #[tokio::test]
     async fn his_read_date_span() {
         let range = HisReadRange::DateSpan {
-            start: chrono::NaiveDate::from_ymd(2019, 1, 1),
-            end: chrono::NaiveDate::from_ymd(2019, 1, 2),
+            start: chrono::NaiveDate::from_ymd(2019, 1, 1).into(),
+            end: chrono::NaiveDate::from_ymd(2019, 1, 2).into(),
         };
         his_read(&range).await;
     }
@@ -702,7 +737,10 @@ mod test {
             .unwrap()
             .with_timezone(&Sydney);
         let end = start + Duration::days(1);
-        let range = HisReadRange::DateTimeSpan { start, end };
+        let range = HisReadRange::DateTimeSpan {
+            start: start.into(),
+            end: end.into(),
+        };
         his_read(&range).await;
     }
 
@@ -715,7 +753,9 @@ mod test {
             DateTime::parse_from_rfc3339("2012-10-01T00:00:00+10:00")
                 .unwrap()
                 .with_timezone(&Sydney);
-        let range = HisReadRange::SinceDateTime { date_time };
+        let range = HisReadRange::SinceDateTime {
+            date_time: date_time.into(),
+        };
         his_read(&range).await;
     }
 
@@ -727,7 +767,9 @@ mod test {
         let date_time = DateTime::parse_from_rfc3339("2012-10-01T00:00:00Z")
             .unwrap()
             .with_timezone(&UTC);
-        let range = HisReadRange::SinceDateTime { date_time };
+        let range = HisReadRange::SinceDateTime {
+            date_time: date_time.into(),
+        };
         his_read(&range).await;
     }
 
@@ -737,12 +779,11 @@ mod test {
         let mut client = new_client().await;
         let points_grid = client.read(&filter, Some(1)).await.unwrap();
 
-        let point_ref_str = points_grid.rows()[0]["id"].as_str().unwrap();
-        let point_ref = Ref::from_encoded_json_string(&point_ref_str).unwrap();
+        let point_ref = points_grid.rows()[0]["id"].as_hs_ref().unwrap();
         let his_grid = client.his_read(&point_ref, &range).await.unwrap();
 
-        assert!(his_grid.meta()["hisStart"].is_string());
-        assert!(his_grid.meta()["hisEnd"].is_string());
+        assert!(his_grid.meta()["hisStart"].is_hs_date_time());
+        assert!(his_grid.meta()["hisEnd"].is_hs_date_time());
     }
 
     async fn get_ref_for_filter(
@@ -750,10 +791,7 @@ mod test {
         filter: &str,
     ) -> Ref {
         let points_grid = client.read(filter, Some(1)).await.unwrap();
-        let point_ref = points_grid.rows()[0]["id"]
-            .as_str()
-            .and_then(|ref_str| Ref::from_encoded_json_string(ref_str).ok())
-            .unwrap();
+        let point_ref = points_grid.rows()[0]["id"].as_hs_ref().unwrap();
         point_ref
     }
 
@@ -810,8 +848,11 @@ mod test {
             "continuousIntegrationHisWritePoint and kind == \"Bool\"",
         )
         .await;
-        let his_data =
-            vec![(date_time1, true), (date_time2, false), (date_time3, true)];
+        let his_data = vec![
+            (date_time1.into(), true),
+            (date_time2.into(), false),
+            (date_time3.into(), true),
+        ];
 
         let res = client.his_write_bool(&id, &his_data[..]).await.unwrap();
         assert_eq!(res.rows().len(), 0);
@@ -819,7 +860,7 @@ mod test {
 
     #[tokio::test]
     async fn utc_his_write_num() {
-        use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+        use chrono::{Duration, NaiveDateTime, Utc};
 
         let ndt = NaiveDateTime::parse_from_str(
             "2021-01-10 00:00:00",
@@ -827,7 +868,8 @@ mod test {
         )
         .unwrap();
 
-        let date_time1 = DateTime::from_utc(ndt, Utc);
+        let date_time1: chrono::DateTime<Utc> =
+            chrono::DateTime::from_utc(ndt, Utc);
         let date_time2 = date_time1 + Duration::minutes(5);
         let date_time3 = date_time1 + Duration::minutes(10);
 
@@ -838,14 +880,17 @@ mod test {
             "continuousIntegrationHisWritePoint and kind == \"Number\" and unit",
         )
         .await;
+
+        let unit = Some("L/s".to_owned());
+
         let his_data = vec![
-            (date_time1, 111.111),
-            (date_time2, 222.222),
-            (date_time3, 333.333),
+            (date_time1, Number::new(111.111, unit.clone())),
+            (date_time2, Number::new(222.222, unit.clone())),
+            (date_time3, Number::new(333.333, unit.clone())),
         ];
 
         let res = client
-            .utc_his_write_num(&id, "Sydney", &his_data[..], Some("L/s"))
+            .utc_his_write_num(&id, "Sydney", &his_data[..])
             .await
             .unwrap();
         assert_eq!(res.rows().len(), 0);
@@ -870,19 +915,22 @@ mod test {
             "continuousIntegrationHisWritePoint and kind == \"Number\" and unit",
         )
         .await;
-        let his_data =
-            vec![(date_time1, 10.0), (date_time2, 15.34), (date_time3, 1.234)];
 
-        let res = client
-            .his_write_num(&id, &his_data[..], Some("L/s"))
-            .await
-            .unwrap();
+        let unit = Some("L/s".to_owned());
+
+        let his_data = vec![
+            (date_time1.into(), Number::new(10.0, unit.clone())),
+            (date_time2.into(), Number::new(15.34, unit.clone())),
+            (date_time3.into(), Number::new(1.234, unit.clone())),
+        ];
+
+        let res = client.his_write_num(&id, &his_data[..]).await.unwrap();
         assert_eq!(res.rows().len(), 0);
     }
 
     #[tokio::test]
     async fn utc_his_write_num_no_unit() {
-        use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+        use chrono::{Duration, NaiveDateTime, Utc};
 
         let ndt = NaiveDateTime::parse_from_str(
             "2021-01-10 00:00:00",
@@ -890,7 +938,8 @@ mod test {
         )
         .unwrap();
 
-        let date_time1 = DateTime::from_utc(ndt, Utc);
+        let date_time1: chrono::DateTime<Utc> =
+            chrono::DateTime::from_utc(ndt, Utc);
         let date_time2 = date_time1 + Duration::minutes(5);
         let date_time3 = date_time1 + Duration::minutes(10);
 
@@ -902,13 +951,13 @@ mod test {
         )
         .await;
         let his_data = vec![
-            (date_time1, 11.11),
-            (date_time2, 22.22),
-            (date_time3, 33.33),
+            (date_time1, Number::new_unitless(11.11)),
+            (date_time2, Number::new_unitless(22.22)),
+            (date_time3, Number::new_unitless(33.33)),
         ];
 
         let res = client
-            .utc_his_write_num(&id, "Sydney", &his_data[..], None)
+            .utc_his_write_num(&id, "Sydney", &his_data[..])
             .await
             .unwrap();
         assert_eq!(res.rows().len(), 0);
@@ -933,13 +982,14 @@ mod test {
             "continuousIntegrationHisWritePoint and kind == \"Number\" and not unit",
         )
         .await;
-        let his_data =
-            vec![(date_time1, 10.0), (date_time2, 15.34), (date_time3, 1.234)];
 
-        let res = client
-            .his_write_num(&id, &his_data[..], None)
-            .await
-            .unwrap();
+        let his_data = vec![
+            (date_time1.into(), Number::new_unitless(10.0)),
+            (date_time2.into(), Number::new_unitless(15.34)),
+            (date_time3.into(), Number::new_unitless(1.234)),
+        ];
+
+        let res = client.his_write_num(&id, &his_data[..]).await.unwrap();
         assert_eq!(res.rows().len(), 0);
     }
 
@@ -997,9 +1047,9 @@ mod test {
         .await;
 
         let his_data = vec![
-            (date_time1, "hello".to_owned()),
-            (date_time2, "world".to_owned()),
-            (date_time3, "!".to_owned()),
+            (date_time1.into(), "hello".to_owned()),
+            (date_time2.into(), "world".to_owned()),
+            (date_time3.into(), "!".to_owned()),
         ];
 
         let res = client.his_write_str(&id, &his_data[..]).await.unwrap();
@@ -1010,17 +1060,17 @@ mod test {
     async fn nav_root() {
         let mut client = new_client().await;
         let grid = client.nav(None).await.unwrap();
-        assert!(grid.rows()[0]["navId"].is_string());
+        assert!(grid.rows()[0]["navId"].is_hs_ref());
     }
 
     #[tokio::test]
     async fn nav() {
         let mut client = new_client().await;
         let root_grid = client.nav(None).await.unwrap();
-        let child_nav_id = root_grid.rows()[0]["navId"].as_str().unwrap();
+        let child_nav_id = root_grid.rows()[0]["navId"].as_hs_ref().unwrap();
 
         let child_grid = client.nav(Some(&child_nav_id)).await.unwrap();
-        let final_nav_id = child_grid.rows()[0]["navId"].as_str().unwrap();
+        let final_nav_id = child_grid.rows()[0]["navId"].as_hs_ref().unwrap();
         assert_ne!(child_nav_id, final_nav_id);
     }
 
@@ -1034,13 +1084,10 @@ mod test {
     #[tokio::test]
     async fn read_with_no_limit() {
         let mut client = new_client().await;
-        let grid = client.read("projMeta or uiMeta", None).await.unwrap();
+        let grid = client.read("point", None).await.unwrap();
 
-        assert!(grid.rows()[0]["id"].is_string());
-        let proj_meta = &grid.rows()[0]["projMeta"];
-        let ui_meta = &grid.rows()[0]["uiMeta"];
-        let marker = json!("m:");
-        assert!(*proj_meta == marker || *ui_meta == marker);
+        assert!(grid.rows()[0]["id"].is_hs_ref());
+        assert!(grid.rows().len() > 10);
     }
 
     #[tokio::test]
@@ -1073,8 +1120,7 @@ mod test {
         let mut client = new_client().await;
         // Get some valid ids:
         let grid1 = client.read("id", Some(1)).await.unwrap();
-        let raw_id1 = &grid1.rows()[0]["id"].as_str().unwrap();
-        let ref1 = Ref::from_encoded_json_string(raw_id1).unwrap();
+        let ref1 = grid1.rows()[0]["id"].as_hs_ref().unwrap().clone();
         let ids = vec![ref1];
         let grid2 = client.read_by_ids(&ids).await.unwrap();
         assert_eq!(grid1, grid2);
@@ -1085,10 +1131,8 @@ mod test {
         let mut client = new_client().await;
         // Get some valid ids:
         let grid1 = client.read("id", Some(2)).await.unwrap();
-        let raw_id1 = &grid1.rows()[0]["id"].as_str().unwrap();
-        let raw_id2 = &grid1.rows()[1]["id"].as_str().unwrap();
-        let ref1 = Ref::from_encoded_json_string(raw_id1).unwrap();
-        let ref2 = Ref::from_encoded_json_string(raw_id2).unwrap();
+        let ref1 = grid1.rows()[0]["id"].as_hs_ref().unwrap().clone();
+        let ref2 = grid1.rows()[1]["id"].as_hs_ref().unwrap().clone();
 
         let ids = vec![ref1, ref2];
         let grid2 = client.read_by_ids(&ids).await.unwrap();
@@ -1100,7 +1144,7 @@ mod test {
         let mut client = new_client().await;
         let axon_expr = "readAll(id and mod)[0..1].keepCols([\"id\", \"mod\"])";
         let grid = client.eval(axon_expr).await.unwrap();
-        assert!(grid.rows()[0]["id"].is_string());
+        assert!(grid.rows()[0]["id"].is_hs_ref());
     }
 
     #[test]
@@ -1141,7 +1185,7 @@ mod test {
     #[tokio::test]
     async fn project_name_works() {
         let client = new_client().await;
-        assert!(client.project_name().ends_with("dev"));
+        assert!(client.project_name().len() > 3);
     }
 
     #[test]

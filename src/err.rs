@@ -45,6 +45,12 @@ pub enum Error {
     /// An error related to parsing a `Grid` from a JSON value.
     #[error("Could not parse JSON as a Haystack grid")]
     ParseJsonGrid(#[from] ParseJsonGridError),
+    /// An error caused by an invalid time zone.
+    #[error("Not a valid time zone: {err_time_zone}")]
+    TimeZone {
+        /// The time zone which caused the error.
+        err_time_zone: String,
+    },
     /// An error occurred when trying to obtain a new auth token from
     /// the server.
     #[error("Could not obtain a new auth token from the server")]

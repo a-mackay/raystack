@@ -62,6 +62,7 @@ impl Grid {
         );
 
         let mut json_grid = json!({
+            "_kind": "grid",
             "meta": {"ver": "3.0"},
         });
 
@@ -101,13 +102,11 @@ impl Grid {
     }
 
     pub(crate) fn add_ref_to_meta(&mut self, hsref: &Ref) {
+        use raystack_core::Hayson;
         let meta = self.json["meta"]
             .as_object_mut()
             .expect("meta is a JSON Object");
-        meta.insert(
-            "id".to_owned(),
-            Value::String(hsref.to_encoded_json_string()),
-        );
+        meta.insert("id".to_owned(), hsref.to_hayson());
     }
 
     /// Return a vector of JSON values which represent the columns of the grid.
@@ -455,15 +454,7 @@ impl Grid {
 
     /// Returns true if the grid appears to be an error grid.
     pub fn is_error(&self) -> bool {
-        if let Some(err_val) = self.meta().get("err") {
-            if let Some(err_str) = err_val.as_str() {
-                err_str == MARKER_LITERAL
-            } else {
-                false
-            }
-        } else {
-            false
-        }
+        self.meta().get("err").is_some()
     }
 
     /// Return the error trace if present.
@@ -564,8 +555,6 @@ pub enum CsvError {
     #[error("Error consuming a CSV writer")]
     Writer(#[from] Box<csv::IntoInnerError<csv::Writer<Vec<u8>>>>),
 }
-
-const MARKER_LITERAL: &str = "m:";
 
 impl std::convert::TryFrom<Value> for Grid {
     type Error = ParseJsonGridError;
