@@ -1,77 +1,6 @@
-use crate::grid::Grid;
-use crate::Error;
 use crate::{Date, DateTime};
-use chrono::{SecondsFormat, Utc};
-use raystack_core::Ref;
+use chrono::SecondsFormat;
 use url::Url;
-
-/// Provides functions which correspond to some Haystack REST API operations.
-trait HaystackRest {
-    // TODO?
-    /// Returns a grid containing basic server information.
-    fn about(&self) -> Result<Grid, Error>;
-    /// Returns a grid describing what MIME types are available.
-    fn formats(&self) -> Result<Grid, Error>;
-    /// Returns a grid of history data for a single point.
-    fn his_read(&self, id: &Ref, range: &HisReadRange) -> Result<Grid, Error>;
-    /// Writes boolean values to a single point.
-    fn his_write_bool(
-        &self,
-        id: &Ref,
-        his_data: &[(DateTime, bool)],
-    ) -> Result<Grid, Error>;
-    /// Writes string values to a single point.
-    fn his_write_str(
-        &self,
-        id: &Ref,
-        his_data: &[(DateTime, String)],
-    ) -> Result<Grid, Error>;
-    /// Writes numeric values to a single point. `unit` must be a valid
-    /// Haystack unit literal, such as `L/s` or `celsius`.
-    fn his_write_num(
-        &self,
-        id: &Ref,
-        his_data: &[(DateTime, f64)],
-        unit: &str,
-    ) -> Result<Grid, Error>;
-    /// Writes boolean values with UTC timestamps to a single point.
-    /// `time_zone_name` must be a valid SkySpark timezone name.
-    fn utc_his_write_bool(
-        &self,
-        id: &Ref,
-        time_zone_name: &str,
-        his_data: &[(chrono::DateTime<Utc>, bool)],
-    ) -> Result<Grid, Error>;
-    /// Writes string values with UTC timestamps to a single point.
-    /// `time_zone_name` must be a valid SkySpark timezone name.
-    fn utc_his_write_str(
-        &self,
-        id: &Ref,
-        time_zone_name: &str,
-        his_data: &[(chrono::DateTime<Utc>, String)],
-    ) -> Result<Grid, Error>;
-    /// Writes numeric values with UTC timestamps to a single point.
-    /// `unit` must be a valid Haystack unit literal, such as `L/s` or
-    /// `celsius`.
-    /// `time_zone_name` must be a valid SkySpark timezone name.
-    fn utc_his_write_num(
-        &self,
-        id: &Ref,
-        time_zone_name: &str,
-        his_data: &[(chrono::DateTime<Utc>, f64)],
-        unit: &str,
-    ) -> Result<Grid, Error>;
-    /// The Haystack nav operation.
-    fn nav(&self, nav_id: Option<&str>) -> Result<Grid, Error>;
-    /// Returns a grid containing the operations available on the server.
-    fn ops(&self) -> Result<Grid, Error>;
-    /// Returns a grid containing the records matching the given Axon
-    /// filter string.
-    fn read(&self, filter: &str, limit: Option<u64>) -> Result<Grid, Error>;
-    /// Returns a grid containing the records matching the given id
-    /// `Ref`s.
-    fn read_by_ids(&self, ids: &[Ref]) -> Result<Grid, Error>;
-}
 
 pub(crate) trait HaystackUrl {
     fn about_url(&self) -> Url;
@@ -81,13 +10,6 @@ pub(crate) trait HaystackUrl {
     fn nav_url(&self) -> Url;
     fn ops_url(&self) -> Url;
     fn read_url(&self) -> Url;
-}
-
-/// Provides functions which correspond to some SkySpark REST API operations.
-trait SkySparkRest {
-    /// Evaluate an Axon expression on the SkySpark server and return a grid
-    /// containing the resulting data.
-    fn eval(&self, axon_expr: &str) -> Result<Grid, Error>;
 }
 
 /// Represents the different time range queries that can be sent

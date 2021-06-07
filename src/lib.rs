@@ -61,7 +61,6 @@ pub use raystack_core::{ParseRefError, Ref};
 use reqwest::Client as ReqwestClient;
 use serde_json::json;
 use std::convert::TryInto;
-use thiserror::Error;
 pub use tz::skyspark_tz_string_to_tz;
 use url::Url;
 pub use value_ext::ValueExt;
@@ -338,14 +337,17 @@ pub(crate) fn add_backslash_if_necessary(url: Url) -> Url {
 }
 
 impl SkySparkClient {
+    /// Returns a grid containing basic server information.
     pub async fn about(&mut self) -> Result<Grid> {
         self.get(self.about_url()).await
     }
 
+    /// Returns a grid describing what MIME types are available.
     pub async fn formats(&mut self) -> Result<Grid> {
         self.get(self.formats_url()).await
     }
 
+    /// Returns a grid of history data for a single point.
     pub async fn his_read(
         &mut self,
         id: &Ref,
@@ -361,6 +363,7 @@ impl SkySparkClient {
         self.post(self.his_read_url(), &req_grid).await
     }
 
+    /// Writes boolean values to a single point.
     pub async fn his_write_bool(
         &mut self,
         id: &Ref,
@@ -384,6 +387,8 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
+    /// Writes numeric values to a single point. `unit` must be a valid
+    /// Haystack unit literal, such as `L/s` or `celsius`.
     pub async fn his_write_num(
         &mut self,
         id: &Ref,
@@ -407,6 +412,7 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
+    /// Writes string values to a single point.
     pub async fn his_write_str(
         &mut self,
         id: &Ref,
@@ -430,6 +436,8 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
+    /// Writes boolean values with UTC timestamps to a single point.
+    /// `time_zone_name` must be a valid SkySpark timezone name.
     pub async fn utc_his_write_bool(
         &mut self,
         id: &Ref,
@@ -461,6 +469,10 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
+    /// Writes numeric values with UTC timestamps to a single point.
+    /// `unit` must be a valid Haystack unit literal, such as `L/s` or
+    /// `celsius`.
+    /// `time_zone_name` must be a valid SkySpark timezone name.
     pub async fn utc_his_write_num(
         &mut self,
         id: &Ref,
@@ -493,6 +505,8 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
+    /// Writes string values with UTC timestamps to a single point.
+    /// `time_zone_name` must be a valid SkySpark timezone name.
     pub async fn utc_his_write_str(
         &mut self,
         id: &Ref,
@@ -525,6 +539,7 @@ impl SkySparkClient {
         self.post(self.his_write_url(), &req_grid).await
     }
 
+    /// The Haystack nav operation.
     pub async fn nav(&mut self, nav_id: Option<&Ref>) -> Result<Grid> {
         use raystack_core::Hayson;
         let req_grid = match nav_id {
@@ -538,10 +553,13 @@ impl SkySparkClient {
         self.post(self.nav_url(), &req_grid).await
     }
 
+    /// Returns a grid containing the operations available on the server.
     pub async fn ops(&mut self) -> Result<Grid> {
         self.get(self.ops_url()).await
     }
 
+    /// Returns a grid containing the records matching the given Axon
+    /// filter string.
     pub async fn read(
         &mut self,
         filter: &str,
@@ -556,6 +574,8 @@ impl SkySparkClient {
         self.post(self.read_url(), &req_grid).await
     }
 
+    /// Returns a grid containing the records matching the given id
+    /// `Ref`s.
     pub async fn read_by_ids(&mut self, ids: &[Ref]) -> Result<Grid> {
         use raystack_core::Hayson;
         let rows = ids.iter().map(|id| json!({"id": id.to_hayson()})).collect();
@@ -603,9 +623,7 @@ impl SkySparkClient {
     }
 }
 
-pub(crate) async fn http_response_to_grid(
-    res: reqwest::Response,
-) -> Result<Grid> {
+async fn http_response_to_grid(res: reqwest::Response) -> Result<Grid> {
     let json: serde_json::Value = res.json().await?;
     let grid: Grid = json.try_into()?;
 
