@@ -499,15 +499,8 @@ impl Grid {
         for row in self.rows() {
             let mut row_values = Vec::new();
             for &col_name in col_names {
-                let value_string = match &row[col_name] {
-                    Value::Array(_) => "<Array>".to_owned(),
-                    Value::Bool(true) => "T".to_owned(),
-                    Value::Bool(false) => "F".to_owned(),
-                    Value::Null => "".to_owned(),
-                    Value::Number(n) => n.to_string(),
-                    Value::Object(_) => "<Object>".to_owned(),
-                    Value::String(s) => s.to_owned(),
-                };
+                let cell_value = &row[col_name];
+                let value_string = value_to_string(cell_value);
                 row_values.push(value_string);
             }
             writer.write_record(row_values)?;
@@ -554,6 +547,71 @@ pub enum CsvError {
     Internal(#[from] csv::Error),
     #[error("Error consuming a CSV writer")]
     Writer(#[from] Box<csv::IntoInnerError<csv::Writer<Vec<u8>>>>),
+}
+
+#[cfg(feature = "grid_csv")]
+fn value_to_string(value: &Value) -> String {
+    use crate::{Coord, Date, DateTime, Time};
+    use raystack_core::{
+        Hayson, Marker, Na, Number, RemoveMarker, Symbol, Uri, Xstr,
+    };
+    if let Some(_) = value.as_null() {
+        return "".to_owned();
+    }
+    if let Some(string) = value.as_str() {
+        return string.to_owned();
+    }
+    if let Ok(_) = Marker::from_hayson(value) {
+        return "✔".to_owned();
+    }
+    if let Ok(hs_ref) = Ref::from_hayson(value) {
+        return hs_ref.to_axon_code().to_owned();
+    }
+    if let Ok(number) = Number::from_hayson(value) {
+        return number.to_string();
+    }
+    if let Ok(dt) = DateTime::from_hayson(value) {
+        return dt.date_time().to_rfc3339();
+    }
+    if let Ok(date) = Date::from_hayson(value) {
+        return date.naive_date().format("%Y-%m-%d").to_string();
+    }
+    if let Ok(time) = Time::from_hayson(value) {
+        return time.naive_time().format("%H:%M:%S").to_string();
+    }
+    if let Ok(uri) = Uri::from_hayson(value) {
+        return uri.to_string();
+    }
+    if let Some(bool) = value.as_bool() {
+        let b = if bool { "True" } else { "False" };
+        return b.to_owned();
+    }
+    if let Ok(_) = RemoveMarker::from_hayson(value) {
+        return "<R>".to_owned();
+    }
+    if let Ok(_) = Na::from_hayson(value) {
+        return "<Na>".to_owned();
+    }
+    if let Ok(xstr) = Xstr::from_hayson(value) {
+        return xstr.to_string();
+    }
+    if let Ok(coord) = Coord::from_hayson(value) {
+        return coord.to_string();
+    }
+    if let Ok(sym) = Symbol::from_hayson(value) {
+        return sym.to_string();
+    }
+
+    match value {
+        Value::Array(_) => "<List>".to_owned(),
+        Value::Object(obj) => {
+            match obj.get("_kind").and_then(|val| val.as_str()) {
+                Some("grid") => "<Grid>".to_owned(),
+                _ => "<Dict>".to_owned(),
+            }
+        }
+        _ => "<Unknown>".to_owned(),
+    }
 }
 
 impl std::convert::TryFrom<Value> for Grid {
