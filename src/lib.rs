@@ -58,6 +58,7 @@ pub use raystack_core::Number;
 pub use raystack_core::{is_tag_name, ParseTagNameError, TagName};
 pub use raystack_core::{Marker, Na, RemoveMarker, Symbol, Uri, Xstr};
 pub use raystack_core::{ParseRefError, Ref};
+pub use raystack_core::{FromHaysonError, Hayson};
 use reqwest::Client as ReqwestClient;
 use serde_json::json;
 use std::convert::TryInto;
@@ -353,7 +354,6 @@ impl SkySparkClient {
         id: &Ref,
         range: &HisReadRange,
     ) -> Result<Grid> {
-        use raystack_core::Hayson;
         let row = json!({
             "id": id.to_hayson(),
             "range": range.to_json_request_string()
@@ -369,8 +369,6 @@ impl SkySparkClient {
         id: &Ref,
         his_data: &[(DateTime, bool)],
     ) -> Result<Grid> {
-        use raystack_core::Hayson;
-
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
@@ -394,8 +392,6 @@ impl SkySparkClient {
         id: &Ref,
         his_data: &[(DateTime, Number)],
     ) -> Result<Grid> {
-        use raystack_core::Hayson;
-
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
@@ -418,8 +414,6 @@ impl SkySparkClient {
         id: &Ref,
         his_data: &[(DateTime, String)],
     ) -> Result<Grid> {
-        use raystack_core::Hayson;
-
         let rows = his_data
             .iter()
             .map(|(date_time, value)| {
@@ -444,8 +438,6 @@ impl SkySparkClient {
         time_zone_name: &str,
         his_data: &[(chrono::DateTime<Utc>, bool)],
     ) -> Result<Grid> {
-        use raystack_core::Hayson;
-
         let tz = skyspark_tz_string_to_tz(time_zone_name).ok_or_else(|| {
             Error::TimeZone {
                 err_time_zone: time_zone_name.to_owned(),
@@ -479,8 +471,6 @@ impl SkySparkClient {
         time_zone_name: &str,
         his_data: &[(chrono::DateTime<Utc>, Number)],
     ) -> Result<Grid> {
-        use raystack_core::Hayson;
-
         let tz = skyspark_tz_string_to_tz(time_zone_name).ok_or_else(|| {
             Error::TimeZone {
                 err_time_zone: time_zone_name.to_owned(),
@@ -513,8 +503,6 @@ impl SkySparkClient {
         time_zone_name: &str,
         his_data: &[(chrono::DateTime<Utc>, String)],
     ) -> Result<Grid> {
-        use raystack_core::Hayson;
-
         let tz = skyspark_tz_string_to_tz(time_zone_name).ok_or_else(|| {
             Error::TimeZone {
                 err_time_zone: time_zone_name.to_owned(),
@@ -541,7 +529,6 @@ impl SkySparkClient {
 
     /// The Haystack nav operation.
     pub async fn nav(&mut self, nav_id: Option<&Ref>) -> Result<Grid> {
-        use raystack_core::Hayson;
         let req_grid = match nav_id {
             Some(nav_id) => {
                 let row = json!({ "navId": nav_id.to_hayson() });
@@ -577,7 +564,6 @@ impl SkySparkClient {
     /// Returns a grid containing the records matching the given id
     /// `Ref`s.
     pub async fn read_by_ids(&mut self, ids: &[Ref]) -> Result<Grid> {
-        use raystack_core::Hayson;
         let rows = ids.iter().map(|id| json!({"id": id.to_hayson()})).collect();
 
         let req_grid = Grid::new_internal(rows);
