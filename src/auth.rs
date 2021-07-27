@@ -1,5 +1,8 @@
+use hmac::{Hmac, Mac, NewMac};
+use pbkdf2::pbkdf2;
 use reqwest::{Client, Response};
-use ring::{digest, hmac, pbkdf2};
+use ring::digest;
+use sha2::{Digest, Sha256, Sha512};
 use std::convert::From;
 use std::num::NonZeroU32;
 use std::str::FromStr;
@@ -23,6 +26,9 @@ impl FromStr for HashFunction {
     }
 }
 
+type HmacSha256 = Hmac<Sha256>;
+type HmacSha512 = Hmac<Sha512>;
+
 impl HashFunction {
     fn pbkdf2(
         &self,
@@ -30,12 +36,16 @@ impl HashFunction {
         salt: &[u8],
         iterations: NonZeroU32,
     ) -> Vec<u8> {
-        let algorithm = match self {
-            HashFunction::Sha256 => pbkdf2::PBKDF2_HMAC_SHA256,
-            HashFunction::Sha512 => pbkdf2::PBKDF2_HMAC_SHA512,
-        };
         let mut dk = vec![0u8; self.dk_len()];
-        pbkdf2::derive(algorithm, iterations, salt, key, &mut dk);
+
+        match self {
+            Self::Sha256 => {
+                pbkdf2::<HmacSha256>(key, salt, iterations.into(), &mut dk);
+            }
+            Self::Sha512 => {
+                pbkdf2::<HmacSha512>(key, salt, iterations.into(), &mut dk);
+            }
+        }
         dk
     }
 
@@ -49,13 +59,25 @@ impl HashFunction {
 
     /// See the documentation for hmac::Key::new for the restrictions on
     /// `key_value`.
-    fn hmac_sign(&self, key_value: &[u8], data: &[u8]) -> hmac::Tag {
-        let algorithm = match self {
-            HashFunction::Sha256 => hmac::HMAC_SHA256,
-            HashFunction::Sha512 => hmac::HMAC_SHA512,
-        };
-        let key = hmac::Key::new(algorithm, key_value);
-        hmac::sign(&key, data)
+    fn hmac_sign(&self, key_value: &[u8], data: &[u8]) -> &[u8] {
+        match self {
+            Self::Sha256 => {
+                let mut mac =
+                    HmacSha256::new_from_slice(key_value).expect("TODO");
+                mac.update(data);
+                let result = mac.finalize();
+                result.into_bytes();
+                todo!()
+            }
+            Self::Sha512 => {
+                let mut mac =
+                    HmacSha512::new_from_slice(key_value).expect("TODO");
+                mac.update(data);
+                let result = mac.finalize();
+                result.into_bytes();
+                todo!()
+            }
+        }
     }
 
     fn digest(&self, input: &[u8]) -> Vec<u8> {
