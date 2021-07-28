@@ -75,7 +75,6 @@ type StdResult<T, E> = std::result::Result<T, E>;
 #[derive(Clone, Debug)]
 pub struct ClientSeed {
     client: ReqwestClient,
-    rng: ring::rand::SystemRandom,
 }
 
 impl ClientSeed {
@@ -88,10 +87,7 @@ impl ClientSeed {
             .timeout(Duration::from_secs(timeout_in_seconds))
             .build()?;
 
-        Ok(Self {
-            client,
-            rng: ring::rand::SystemRandom::new(),
-        })
+        Ok(Self { client })
     }
 
     /// Create a new `ClientSeed`. Use this method if sharing a
@@ -100,18 +96,11 @@ impl ClientSeed {
         // This will reuse the underlying HTTP client because
         // `reqwest::Client` uses an `Arc` internally:
         let client = client.clone();
-        Self {
-            client,
-            rng: ring::rand::SystemRandom::new(),
-        }
+        Self { client }
     }
 
     fn client(&self) -> &reqwest::Client {
         &self.client
-    }
-
-    fn rng(&self) -> &ring::rand::SystemRandom {
-        &self.rng
     }
 }
 
@@ -129,7 +118,6 @@ pub(crate) async fn new_auth_token(
         auth_url.as_str(),
         username,
         password,
-        client_seed.rng(),
     )
     .await?;
 
