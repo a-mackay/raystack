@@ -73,8 +73,3 @@ impl NewSkySparkClientError {
         NewSkySparkClientError::Url { msg: msg.into() }
     }
 }
-
-/// Errors that can occur when creating a new `ClientSeed`.
-#[derive(Debug, Error)]
-#[error("Could not create a new client seed")]
-pub struct NewClientSeedError(#[from] reqwest::Error);

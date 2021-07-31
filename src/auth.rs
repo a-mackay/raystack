@@ -111,13 +111,9 @@ pub(crate) async fn new_auth_token(
     let nonce = generate_nonce().map_err(HandshakeError::from)?;
     let client_first_msg = format!("n={},r={}", username, nonce);
 
-    let server_first_res = server_first_response(
-        client,
-        url,
-        &handshake_token,
-        &client_first_msg,
-    )
-    .await?;
+    let server_first_res =
+        server_first_response(client, url, &handshake_token, &client_first_msg)
+            .await?;
 
     let ServerFirstResponse {
         server_first_msg,
