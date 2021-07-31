@@ -6,18 +6,15 @@ use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    use raystack::{ClientSeed, SkySparkClient, ValueExt};
+    use raystack::{SkySparkClient, ValueExt};
     use url::Url;
 
     let url = Url::parse("https://www.example.com/api/projName/")?;
-    let timeout_in_seconds = 30;
 
-    // If you are creating many `SkySparkClient`s, reuse the same `ClientSeed`
-    // for each `SkySparkClient`:
-    let client_seed = ClientSeed::new(timeout_in_seconds)?;
-
-    let mut client =
-        SkySparkClient::new(url, "username", "p4ssw0rd", client_seed).await?;
+    // If you are going to create many `SkySparkClient`s,
+    // reuse the same `reqwest::Client` in each `SkySparkClient`
+    // by using the `SkySparkClient::new_with_client` function instead.
+    let mut client = SkySparkClient::new(url, "username", "p4ssw0rd").await?;
 
     let sites_grid = client.eval("readAll(site)").await?;
 
