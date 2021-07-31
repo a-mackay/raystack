@@ -32,7 +32,7 @@ impl Hayson for Date {
     fn from_hayson(value: &Value) -> Result<Self, FromHaysonError> {
         match &value {
             Value::Object(obj) => {
-                if let Some(kind_err) = hayson_check_kind("date", &value) {
+                if let Some(kind_err) = hayson_check_kind("date", value) {
                     return Err(kind_err);
                 }
                 let val = obj.get("val");
@@ -96,7 +96,7 @@ impl Hayson for Time {
     fn from_hayson(value: &Value) -> Result<Self, FromHaysonError> {
         match &value {
             Value::Object(obj) => {
-                if let Some(kind_err) = hayson_check_kind("time", &value) {
+                if let Some(kind_err) = hayson_check_kind("time", value) {
                     return Err(kind_err);
                 }
                 let val = obj.get("val");
@@ -177,7 +177,7 @@ impl Hayson for DateTime {
 
         match &value {
             Value::Object(obj) => {
-                if let Some(kind_err) = hayson_check_kind("dateTime", &value) {
+                if let Some(kind_err) = hayson_check_kind("dateTime", value) {
                     return Err(kind_err);
                 }
 

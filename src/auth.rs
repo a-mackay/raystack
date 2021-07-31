@@ -1,5 +1,7 @@
+use hmac::{Hmac, Mac, NewMac};
+use pbkdf2::pbkdf2;
 use reqwest::{Client, Response};
-use ring::{digest, hmac, pbkdf2};
+use sha2::{Digest, Sha256, Sha512};
 use std::convert::From;
 use std::num::NonZeroU32;
 use std::str::FromStr;
@@ -23,6 +25,9 @@ impl FromStr for HashFunction {
     }
 }
 
+type HmacSha256 = Hmac<Sha256>;
+type HmacSha512 = Hmac<Sha512>;
+
 impl HashFunction {
     fn pbkdf2(
         &self,
@@ -30,42 +35,61 @@ impl HashFunction {
         salt: &[u8],
         iterations: NonZeroU32,
     ) -> Vec<u8> {
-        let algorithm = match self {
-            HashFunction::Sha256 => pbkdf2::PBKDF2_HMAC_SHA256,
-            HashFunction::Sha512 => pbkdf2::PBKDF2_HMAC_SHA512,
-        };
         let mut dk = vec![0u8; self.dk_len()];
-        pbkdf2::derive(algorithm, iterations, salt, key, &mut dk);
+
+        match self {
+            Self::Sha256 => {
+                pbkdf2::<HmacSha256>(key, salt, iterations.into(), &mut dk);
+            }
+            Self::Sha512 => {
+                pbkdf2::<HmacSha512>(key, salt, iterations.into(), &mut dk);
+            }
+        }
         dk
     }
 
     /// Return the dk length, in bytes.
     fn dk_len(&self) -> usize {
         match self {
-            HashFunction::Sha256 => 32,
-            HashFunction::Sha512 => 64,
+            Self::Sha256 => 32,
+            Self::Sha512 => 64,
         }
     }
 
     /// See the documentation for hmac::Key::new for the restrictions on
     /// `key_value`.
-    fn hmac_sign(&self, key_value: &[u8], data: &[u8]) -> hmac::Tag {
-        let algorithm = match self {
-            HashFunction::Sha256 => hmac::HMAC_SHA256,
-            HashFunction::Sha512 => hmac::HMAC_SHA512,
-        };
-        let key = hmac::Key::new(algorithm, key_value);
-        hmac::sign(&key, data)
+    fn hmac_sign(&self, key_value: &[u8], data: &[u8]) -> Vec<u8> {
+        match self {
+            Self::Sha256 => {
+                let mut mac = HmacSha256::new_from_slice(key_value)
+                    .expect("expected key length to be valid");
+                mac.update(data);
+                let result = mac.finalize();
+                let bytes = result.into_bytes();
+                bytes.into_iter().collect()
+            }
+            Self::Sha512 => {
+                let mut mac = HmacSha512::new_from_slice(key_value)
+                    .expect("expected key length to be valid");
+                mac.update(data);
+                let result = mac.finalize();
+                let bytes = result.into_bytes();
+                bytes.into_iter().collect()
+            }
+        }
     }
 
     fn digest(&self, input: &[u8]) -> Vec<u8> {
-        let algorithm = match self {
-            HashFunction::Sha256 => &digest::SHA256,
-            HashFunction::Sha512 => &digest::SHA512,
-        };
-
-        let digest_result = digest::digest(algorithm, input);
-        digest_result.as_ref().to_vec()
+        match self {
+            Self::Sha256 => {
+                let bytes = Sha256::digest(input);
+                bytes.into_iter().collect()
+            }
+            Self::Sha512 => {
+                let bytes = Sha512::digest(input);
+                bytes.into_iter().collect()
+            }
+        }
     }
 }
 
@@ -76,21 +100,20 @@ pub(crate) async fn new_auth_token(
     url: &str,
     username: &str,
     password: &str,
-    rng: &ring::rand::SystemRandom,
 ) -> AuthResult<String> {
-    let auth_session_cfg = auth_session_config(client, &url, username).await?;
+    let auth_session_cfg = auth_session_config(client, url, username).await?;
 
     let AuthSessionConfig {
         handshake_token,
         hash_fn,
     } = auth_session_cfg;
 
-    let nonce = generate_nonce(rng).map_err(HandshakeError::from)?;
+    let nonce = generate_nonce().map_err(HandshakeError::from)?;
     let client_first_msg = format!("n={},r={}", username, nonce);
 
     let server_first_res = server_first_response(
         client,
-        &url,
+        url,
         &handshake_token,
         &client_first_msg,
     )
@@ -126,7 +149,7 @@ pub(crate) async fn new_auth_token(
 
     let server_second_res = server_second_response(
         client,
-        &url,
+        url,
         &handshake_token,
         &auth_msg,
         &salted_password,
@@ -150,15 +173,15 @@ pub(crate) async fn new_auth_token(
     }
 }
 
-fn generate_nonce(
-    rng: &dyn ring::rand::SecureRandom,
-) -> Result<String, GenerateNonceError> {
+fn generate_nonce() -> Result<String, GenerateNonceError> {
+    use rand::{RngCore, SeedableRng};
+    use rand_chacha::ChaCha20Rng;
     use std::fmt::Write;
 
+    let mut rng = ChaCha20Rng::from_entropy();
     let mut out = vec![0u8; 32];
-    rng.fill(&mut out).map_err(|err| GenerateNonceError {
-        msg: format!("{}", err),
-    })?;
+    rng.fill_bytes(&mut out);
+
     let mut nonce = String::new();
     for byte in out.iter() {
         write!(&mut nonce, "{:x}", byte).map_err(|err| GenerateNonceError {
@@ -259,12 +282,12 @@ async fn server_second_response(
     client_final_no_proof: &str,
     hash_fn: &HashFunction,
 ) -> AuthResult<ServerSecondResponse> {
-    let client_key_tag = hash_fn.hmac_sign(&salted_password, b"Client Key");
-    let client_key = client_key_tag.as_ref();
-    let stored_key = hash_fn.digest(&client_key);
+    let client_key_tag = hash_fn.hmac_sign(salted_password, b"Client Key");
+    let client_key = &client_key_tag[..];
+    let stored_key = hash_fn.digest(client_key);
     let client_signature_tag =
         hash_fn.hmac_sign(&stored_key, auth_msg.as_bytes());
-    let client_signature = client_signature_tag.as_ref();
+    let client_signature = &client_signature_tag[..];
 
     let client_proof: Vec<u8> = client_key
         .iter()
@@ -311,10 +334,10 @@ fn is_server_valid(
 ) -> bool {
     let computed_server_key_tag =
         hash_fn.hmac_sign(salted_password, b"Server Key");
-    let computed_server_key = computed_server_key_tag.as_ref();
+    let computed_server_key = &computed_server_key_tag[..];
     let computed_server_signature_tag =
         hash_fn.hmac_sign(computed_server_key, auth_msg.as_bytes());
-    let computed_server_signature = computed_server_signature_tag.as_ref();
+    let computed_server_signature = &computed_server_signature_tag[..];
     let computed_server_signature = base64::encode(computed_server_signature);
 
     computed_server_signature == server_signature

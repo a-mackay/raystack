@@ -1,8 +1,8 @@
+use crate::Grid;
 use crate::{
     add_backslash_if_necessary, has_valid_path_segments, http_response_to_grid,
     new_auth_token,
 };
-use crate::{ClientSeed, Grid};
 use serde_json::json;
 use thiserror::Error;
 use url::Url;
@@ -13,17 +13,17 @@ use url::Url;
 /// # Example
 /// ```rust,no_run
 /// # async fn run() {
-/// use raystack::ClientSeed;
 /// use raystack::eval::eval;
-/// let client_seed = ClientSeed::new(30).unwrap();
+/// use reqwest::Client;
 /// let url = "http://test.com/api/bigProject/";
-/// let output = eval(&client_seed, url, "name", "p4ssw0rd", "readAll(site)", None).await.unwrap();
+/// let client = Client::new();
+/// let output = eval(&client, url, "name", "p4ssw0rd", "readAll(site)", None).await.unwrap();
 /// let grid = output.into_grid();
 /// // Use the grid here
 /// # }
 /// ```
 pub async fn eval(
-    client_seed: &ClientSeed,
+    client: &reqwest::Client,
     project_api_url: &str,
     username: &str,
     password: &str,
@@ -53,8 +53,7 @@ pub async fn eval(
         Some(token) => token.to_owned(),
         None => {
             was_new_token_obtained = true;
-            new_auth_token(&project_api_url, &client_seed, username, password)
-                .await?
+            new_auth_token(&project_api_url, client, username, password).await?
         }
     };
 
@@ -62,8 +61,7 @@ pub async fn eval(
     let req_grid = Grid::new_internal(vec![row]);
 
     let req_with_token = |token: &str| {
-        client_seed
-            .client()
+        client
             .post(eval_url.clone())
             .header("Accept", "application/json")
             .header("Authorization", format!("BEARER authToken={}", token))
@@ -75,7 +73,7 @@ pub async fn eval(
 
     if res.status() == reqwest::StatusCode::FORBIDDEN {
         let auth_token =
-            new_auth_token(&project_api_url, &client_seed, username, password)
+            new_auth_token(&project_api_url, client, username, password)
                 .await?;
         let retry_res = req_with_token(&auth_token).send().await?;
         let grid: Result<Grid, EvalError> = http_response_to_grid(retry_res)
@@ -205,7 +203,7 @@ impl EvalError {
 mod test {
     use super::eval;
     use super::{EvalError, EvalOutput};
-    use crate::{ClientSeed, ValueExt};
+    use crate::ValueExt;
 
     fn project_api_url() -> String {
         std::env::var("RAYSTACK_SKYSPARK_PROJECT_API_URL").unwrap()
@@ -223,10 +221,10 @@ mod test {
         axon_expr: &str,
         token: Option<&str>,
     ) -> Result<EvalOutput, EvalError> {
-        let seed = ClientSeed::new(15).unwrap();
+        let client = reqwest::Client::new();
 
         eval(
-            &seed,
+            &client,
             &project_api_url(),
             &username(),
             &password(),

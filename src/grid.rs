@@ -87,7 +87,7 @@ impl Grid {
 
     /// Return a map which represents the metadata for the grid.
     pub fn meta(&self) -> &Map<String, Value> {
-        &self.json["meta"]
+        self.json["meta"]
             .as_object()
             .expect("meta is a JSON Object")
     }
@@ -111,7 +111,7 @@ impl Grid {
 
     /// Return a vector of JSON values which represent the columns of the grid.
     pub fn cols(&self) -> &Vec<Value> {
-        &self.json["cols"].as_array().expect("cols is a JSON Array")
+        self.json["cols"].as_array().expect("cols is a JSON Array")
     }
 
     /// Add a new column, or overwrite an existing column by mapping
@@ -300,7 +300,7 @@ impl Grid {
 
     /// Return a vector of JSON values which represent the rows of the grid.
     pub fn rows(&self) -> &Vec<Value> {
-        &self.json["rows"].as_array().expect("rows is a JSON Array")
+        self.json["rows"].as_array().expect("rows is a JSON Array")
     }
 
     /// Return a vector of `Map`s which represent the rows of the grid.

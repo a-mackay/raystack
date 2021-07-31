@@ -10,13 +10,11 @@
 //!
 //! ```rust,no_run
 //! # async fn run() {
-//! use raystack::{ClientSeed, SkySparkClient, ValueExt};
+//! use raystack::{SkySparkClient, ValueExt};
 //! use url::Url;
 //!
-//! let timeout_in_seconds = 30;
-//! let client_seed = ClientSeed::new(timeout_in_seconds).unwrap();
 //! let url = Url::parse("https://www.example.com/api/projName/").unwrap();
-//! let mut client = SkySparkClient::new(url, "username", "p4ssw0rd", client_seed).await.unwrap();
+//! let mut client = SkySparkClient::new(url, "username", "p4ssw0rd").await.unwrap();
 //! let sites_grid = client.eval("readAll(site)").await.unwrap();
 //!
 //! // Print the raw JSON:
@@ -54,12 +52,11 @@ pub use err::{Error, NewClientSeedError, NewSkySparkClientError};
 pub use grid::{Grid, ParseJsonGridError};
 pub use hs_types::{Date, DateTime, Time};
 pub use raystack_core::Coord;
-pub use raystack_core::{BasicNumber, Number, ScientificNumber};
 pub use raystack_core::{is_tag_name, ParseTagNameError, TagName};
+pub use raystack_core::{BasicNumber, Number, ScientificNumber};
+pub use raystack_core::{FromHaysonError, Hayson};
 pub use raystack_core::{Marker, Na, RemoveMarker, Symbol, Uri, Xstr};
 pub use raystack_core::{ParseRefError, Ref};
-pub use raystack_core::{FromHaysonError, Hayson};
-use reqwest::Client as ReqwestClient;
 use serde_json::json;
 use std::convert::TryInto;
 pub use tz::skyspark_tz_string_to_tz;
@@ -69,55 +66,9 @@ pub use value_ext::ValueExt;
 type Result<T> = std::result::Result<T, Error>;
 type StdResult<T, E> = std::result::Result<T, E>;
 
-/// Contains resources used by a `SkySparkClient`. If creating multiple
-/// `SkySparkClient`s, the same `ClientSeed` should be reused for each,
-/// by calling the `.clone()` method.
-#[derive(Clone, Debug)]
-pub struct ClientSeed {
-    client: ReqwestClient,
-    rng: ring::rand::SystemRandom,
-}
-
-impl ClientSeed {
-    /// Create a new `ClientSeed`. The timeout determines how long the
-    /// underlying HTTP library will wait before timing out.
-    pub fn new(timeout_in_seconds: u64) -> StdResult<Self, NewClientSeedError> {
-        use std::time::Duration;
-
-        let client = ReqwestClient::builder()
-            .timeout(Duration::from_secs(timeout_in_seconds))
-            .build()?;
-
-        Ok(Self {
-            client,
-            rng: ring::rand::SystemRandom::new(),
-        })
-    }
-
-    /// Create a new `ClientSeed`. Use this method if sharing a
-    /// `reqwest::Client` throughout your program.
-    pub fn new_with_client(client: &ReqwestClient) -> Self {
-        // This will reuse the underlying HTTP client because
-        // `reqwest::Client` uses an `Arc` internally:
-        let client = client.clone();
-        Self {
-            client,
-            rng: ring::rand::SystemRandom::new(),
-        }
-    }
-
-    fn client(&self) -> &reqwest::Client {
-        &self.client
-    }
-
-    fn rng(&self) -> &ring::rand::SystemRandom {
-        &self.rng
-    }
-}
-
 pub(crate) async fn new_auth_token(
     project_api_url: &Url,
-    client_seed: &ClientSeed,
+    reqwest_client: &reqwest::Client,
     username: &str,
     password: &str,
 ) -> StdResult<String, crate::auth::AuthError> {
@@ -125,11 +76,10 @@ pub(crate) async fn new_auth_token(
     auth_url.set_path("/ui");
 
     let auth_token = auth::new_auth_token(
-        client_seed.client(),
+        reqwest_client,
         auth_url.as_str(),
         username,
         password,
-        client_seed.rng(),
     )
     .await?;
 
@@ -140,7 +90,7 @@ pub(crate) async fn new_auth_token(
 #[derive(Debug)]
 pub struct SkySparkClient {
     auth_token: String,
-    client_seed: ClientSeed,
+    client: reqwest::Client,
     username: String,
     password: String,
     project_api_url: Url,
@@ -152,41 +102,56 @@ impl SkySparkClient {
     /// # Example
     /// ```rust,no_run
     /// # async fn run() {
-    /// use raystack::{ClientSeed, SkySparkClient};
+    /// use raystack::SkySparkClient;
     /// use url::Url;
-    /// let timeout_in_seconds = 30;
-    /// let client_seed = ClientSeed::new(timeout_in_seconds).unwrap();
     /// let url = Url::parse("https://skyspark.company.com/api/bigProject/").unwrap();
-    /// let mut client = SkySparkClient::new(url, "username", "p4ssw0rd", client_seed).await.unwrap();
+    /// let mut client = SkySparkClient::new(url, "username", "p4ssw0rd").await.unwrap();
     /// # }
     /// ```
-    ///
-    /// If creating multiple `SkySparkClient`s,
-    /// the same `ClientSeed` should be used for each. For example:
-    ///
-    /// ```rust,no_run
-    /// # async fn run() {
-    /// use raystack::{ClientSeed, SkySparkClient};
-    /// use url::Url;
-    /// let client_seed = ClientSeed::new(30).unwrap();
-    /// let url1 = Url::parse("http://test.com/api/bigProject/").unwrap();
-    /// let client1 = SkySparkClient::new(url1, "name", "p4ssw0rd", client_seed.clone()).await.unwrap();
-    /// let url2 = Url::parse("http://test.com/api/smallProj/").unwrap();
-    /// let client2 = SkySparkClient::new(url2, "name", "p4ss", client_seed.clone()).await.unwrap();
-    /// # }
-    /// ```
-    ///
-    /// We pass in the `ClientSeed`
-    /// struct because the underlying crypto library recommends that an
-    /// application should create a single random number generator and use
-    /// it for all randomness generation. Additionally, the underlying HTTP
-    /// library recommends using a single copy of its HTTP client. These two
-    /// resources are wrapped by this `ClientSeed` struct.
     pub async fn new(
         project_api_url: Url,
         username: &str,
         password: &str,
-        client_seed: ClientSeed,
+    ) -> std::result::Result<Self, NewSkySparkClientError> {
+        let client = reqwest::Client::new();
+        Self::new_with_client(project_api_url, username, password, client).await
+    }
+
+    /// Create a new `SkySparkClient`, passing in an existing
+    /// `reqwest::Client`.
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// # async fn run() {
+    /// use raystack::SkySparkClient;
+    /// use reqwest::Client;
+    /// use url::Url;
+    /// let reqwest_client = Client::new();
+    /// let url = Url::parse("https://skyspark.company.com/api/bigProject/").unwrap();
+    /// let mut client = SkySparkClient::new_with_client(url, "username", "p4ssw0rd", reqwest_client).await.unwrap();
+    /// # }
+    /// ```
+    ///
+    /// If creating multiple `SkySparkClient`s,
+    /// the same `reqwest::Client` should be used for each. For example:
+    ///
+    /// ```rust,no_run
+    /// # async fn run() {
+    /// use raystack::SkySparkClient;
+    /// use reqwest::Client;
+    /// use url::Url;
+    /// let reqwest_client = Client::new();
+    /// let url1 = Url::parse("http://test.com/api/bigProject/").unwrap();
+    /// let client1 = SkySparkClient::new_with_client(url1, "name", "password", reqwest_client.clone()).await.unwrap();
+    /// let url2 = Url::parse("http://test.com/api/smallProj/").unwrap();
+    /// let client2 = SkySparkClient::new_with_client(url2, "name", "password", reqwest_client.clone()).await.unwrap();
+    /// # }
+    /// ```
+    pub async fn new_with_client(
+        project_api_url: Url,
+        username: &str,
+        password: &str,
+        reqwest_client: reqwest::Client,
     ) -> std::result::Result<Self, NewSkySparkClientError> {
         let project_api_url = add_backslash_if_necessary(project_api_url);
 
@@ -203,12 +168,12 @@ impl SkySparkClient {
         Ok(SkySparkClient {
             auth_token: new_auth_token(
                 &project_api_url,
-                &client_seed,
+                &reqwest_client,
                 username,
                 password,
             )
             .await?,
-            client_seed,
+            client: reqwest_client,
             username: username.to_owned(),
             password: password.to_owned(),
             project_api_url,
@@ -230,7 +195,7 @@ impl SkySparkClient {
     ) -> StdResult<(), crate::auth::AuthError> {
         let auth_token = new_auth_token(
             self.project_api_url(),
-            &self.client_seed,
+            self.client(),
             &self.username,
             &self.password,
         )
@@ -239,8 +204,8 @@ impl SkySparkClient {
         Ok(())
     }
 
-    fn client(&self) -> &reqwest::Client {
-        self.client_seed.client()
+    pub fn client(&self) -> &reqwest::Client {
+        &self.client
     }
 
     fn auth_header_value(&self) -> String {
@@ -642,7 +607,6 @@ pub(crate) fn has_valid_path_segments(project_api_url: &Url) -> bool {
 #[cfg(test)]
 mod test {
     use crate::api::HisReadRange;
-    use crate::ClientSeed;
     use crate::SkySparkClient;
     use crate::ValueExt;
     use raystack_core::{Number, Ref};
@@ -666,10 +630,15 @@ mod test {
     async fn new_client() -> SkySparkClient {
         let username = username();
         let password = password();
-        let seed = ClientSeed::new(15).unwrap();
-        SkySparkClient::new(project_api_url(), &username, &password, seed)
-            .await
-            .unwrap()
+        let reqwest_client = reqwest::Client::new();
+        SkySparkClient::new_with_client(
+            project_api_url(),
+            &username,
+            &password,
+            reqwest_client,
+        )
+        .await
+        .unwrap()
     }
 
     #[tokio::test]
