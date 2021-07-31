@@ -48,7 +48,7 @@ mod value_ext;
 use api::HaystackUrl;
 pub use api::HisReadRange;
 use chrono::Utc;
-pub use err::{Error, NewClientSeedError, NewSkySparkClientError};
+pub use err::{Error, NewSkySparkClientError};
 pub use grid::{Grid, ParseJsonGridError};
 pub use hs_types::{Date, DateTime, Time};
 pub use raystack_core::Coord;

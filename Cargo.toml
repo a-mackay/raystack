@@ -1,6 +1,6 @@
 [package]
 name = "raystack"
-version = "0.11.0"
+version = "0.11.1"
 authors = ["a-mackay <amackayfoss@outlook.com>"]
 license = "MIT"
 edition = "2018"
