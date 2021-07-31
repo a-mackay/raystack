@@ -73,7 +73,7 @@ pub async fn eval(
 
     if res.status() == reqwest::StatusCode::FORBIDDEN {
         let auth_token =
-            new_auth_token(&project_api_url, &client, username, password)
+            new_auth_token(&project_api_url, client, username, password)
                 .await?;
         let retry_res = req_with_token(&auth_token).send().await?;
         let grid: Result<Grid, EvalError> = http_response_to_grid(retry_res)

@@ -101,7 +101,7 @@ pub(crate) async fn new_auth_token(
     username: &str,
     password: &str,
 ) -> AuthResult<String> {
-    let auth_session_cfg = auth_session_config(client, &url, username).await?;
+    let auth_session_cfg = auth_session_config(client, url, username).await?;
 
     let AuthSessionConfig {
         handshake_token,
@@ -113,7 +113,7 @@ pub(crate) async fn new_auth_token(
 
     let server_first_res = server_first_response(
         client,
-        &url,
+        url,
         &handshake_token,
         &client_first_msg,
     )
@@ -149,7 +149,7 @@ pub(crate) async fn new_auth_token(
 
     let server_second_res = server_second_response(
         client,
-        &url,
+        url,
         &handshake_token,
         &auth_msg,
         &salted_password,
@@ -282,9 +282,9 @@ async fn server_second_response(
     client_final_no_proof: &str,
     hash_fn: &HashFunction,
 ) -> AuthResult<ServerSecondResponse> {
-    let client_key_tag = hash_fn.hmac_sign(&salted_password, b"Client Key");
+    let client_key_tag = hash_fn.hmac_sign(salted_password, b"Client Key");
     let client_key = &client_key_tag[..];
-    let stored_key = hash_fn.digest(&client_key);
+    let stored_key = hash_fn.digest(client_key);
     let client_signature_tag =
         hash_fn.hmac_sign(&stored_key, auth_msg.as_bytes());
     let client_signature = &client_signature_tag[..];

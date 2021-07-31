@@ -46,12 +46,12 @@ impl HisReadRange {
                 )
             }
             Self::DateTimeSpan { start, end } => {
-                let start_str = to_zinc_encoded_string(&start);
-                let end_str = to_zinc_encoded_string(&end);
+                let start_str = to_zinc_encoded_string(start);
+                let end_str = to_zinc_encoded_string(end);
                 format!("{},{}", start_str, end_str)
             }
             Self::SinceDateTime { date_time } => {
-                to_zinc_encoded_string(&date_time)
+                to_zinc_encoded_string(date_time)
             }
         }
     }
