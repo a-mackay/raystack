@@ -6,12 +6,15 @@
 ![Audit Status](https://github.com/a-mackay/raystack/workflows/audit/badge.svg)
 
 
-An asynchronous SkySpark 3 client library for Rust, compatible with SkySpark versions 3.0.28 or higher.
+An asynchronous SkySpark 3 client library for Rust, compatible with SkySpark versions 3.1.1 or higher.
 
 For SkySpark versions before 3.0.28, use version `0.8.*` of this library. Newer versions
 of SkySpark use [Hayson encoding](https://github.com/j2inn/hayson), which this library
 supports. The older versions of SkySpark used a different JSON encoding which is no
 longer supported by this library.
+
+For SkySpark version 3.0.29, use version `0.11.*` of this library, because it uses older Haystack ops for
+`formats` and `ops`.
 
 ## Documentation
 See [docs.rs](https://docs.rs/raystack).
