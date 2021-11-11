@@ -13,7 +13,7 @@ of SkySpark use [Hayson encoding](https://github.com/j2inn/hayson), which this l
 supports. The older versions of SkySpark used a different JSON encoding which is no
 longer supported by this library.
 
-For SkySpark version 3.0.29, use version `0.11.*` of this library, because it uses older Haystack ops for
+For SkySpark versions 3.0.28 or 3.0.29, use version `0.11.*` of this library, because it uses older Haystack ops for
 `formats` and `ops`.
 
 ## Documentation
