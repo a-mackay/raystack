@@ -309,8 +309,8 @@ impl SkySparkClient {
     }
 
     /// Returns a grid describing what MIME types are available.
-    pub async fn formats(&mut self) -> Result<Grid> {
-        self.get(self.formats_url()).await
+    pub async fn filetypes(&mut self) -> Result<Grid> {
+        self.get(self.filetypes_url()).await
     }
 
     /// Returns a grid of history data for a single point.
@@ -541,8 +541,8 @@ impl HaystackUrl for SkySparkClient {
         self.append_to_url("about")
     }
 
-    fn formats_url(&self) -> Url {
-        self.append_to_url("formats")
+    fn filetypes_url(&self) -> Url {
+        self.append_to_url("filetypes")
     }
 
     fn his_read_url(&self) -> Url {
@@ -649,9 +649,9 @@ mod test {
     }
 
     #[tokio::test]
-    async fn formats() {
+    async fn filetypes() {
         let mut client = new_client().await;
-        let grid = client.formats().await.unwrap();
+        let grid = client.filetypes().await.unwrap();
         assert!(grid.rows()[0]["dis"].is_string());
     }
 
@@ -1033,7 +1033,7 @@ mod test {
     async fn ops() {
         let mut client = new_client().await;
         let grid = client.ops().await.unwrap();
-        assert!(grid.rows()[0]["name"].is_string());
+        assert_eq!(grid.rows()[0]["def"]["_kind"], "symbol");
     }
 
     #[tokio::test]

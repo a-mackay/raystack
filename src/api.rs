@@ -4,7 +4,7 @@ use url::Url;
 
 pub(crate) trait HaystackUrl {
     fn about_url(&self) -> Url;
-    fn formats_url(&self) -> Url;
+    fn filetypes_url(&self) -> Url;
     fn his_read_url(&self) -> Url;
     fn his_write_url(&self) -> Url;
     fn nav_url(&self) -> Url;
